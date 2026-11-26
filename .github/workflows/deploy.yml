@@ -1,16 +1,18 @@
 name: Deploy
 
-# Two copies of the app, checked the same way:
-# - every push to main: the copy to try changes on ("TIMP dev", its own name, icons and
+# Two copies of the app, checked the same way. Work goes on develop; main gets only
+# releases, through a pull request from develop, and a tag on main publishes them.
+# - every push to develop: the copy to try changes on ("TIMP dev", its own name, icons and
 #   sharing service), a Cloudflare Worker of static files named timp-dev. Only when the
 #   repository variable DEV_SHARE_URL (its service) and the secrets CLOUDFLARE_API_TOKEN
 #   (Workers Scripts, edit) and CLOUDFLARE_ACCOUNT_ID are set: a fork without them skips it.
-# - a release, a tag vX.Y.Z: the real one, on GitHub Pages. One-time setup: Settings →
-#   Pages → Source: "GitHub Actions"; Environments → github-pages: allow the tags "v*".
+# - a release, a tag vX.Y.Z on main: the real one, on GitHub Pages. One-time setup:
+#   Settings → Pages → Source: "GitHub Actions"; Environments → github-pages: allow the
+#   tags "v*".
 
 on:
   push:
-    branches: [main]
+    branches: [develop]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -34,7 +36,7 @@ jobs:
 
   dev:
     needs: test
-    if: github.ref == 'refs/heads/main' && vars.DEV_SHARE_URL != ''
+    if: github.ref == 'refs/heads/develop' && vars.DEV_SHARE_URL != ''
     runs-on: ubuntu-latest
     environment: dev
     concurrency:
@@ -70,13 +72,17 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
-      - name: The tag is the release package.json says
+      - name: The tag is the release package.json says, on main
         env:
           TAG: ${{ github.ref_name }}
-        run: test "$TAG" = "v$(node -p 'require("./package.json").version')"
+        run: |
+          test "$TAG" = "v$(node -p 'require("./package.json").version')"
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
       - name: Build
         # RESOLVER_URL, SHARE_URL: repository variables (Settings → Secrets and variables →
         # Actions → Variables): the link resolver (worker/README.md) and the sharing service.

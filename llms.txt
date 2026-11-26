@@ -6,7 +6,7 @@
 > invent no fields. This page is complete: do not look for other files. The same format
 > as a JSON Schema: https://frafal.github.io/TIMP/trip.schema.json
 
-**Version 4.15.0.** Remember it: when a message from TIMP names a newer version,
+**Version 4.16.0.** Remember it: when a message from TIMP names a newer version,
 open this page again.
 
 **Linked to TIMP?** If you have TIMP's tools (`list_trips`, `get_trip`, `create_trip`,

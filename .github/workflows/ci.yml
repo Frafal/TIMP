@@ -1,6 +1,7 @@
 name: CI
 
-# Pull requests are checked here. Pushes to main are checked by the deploy workflow.
+# Pull requests are checked here (to develop, and develop's releases to main). Pushes to
+# develop and release tags are checked by the deploy workflow.
 on:
   pull_request:
   workflow_dispatch:

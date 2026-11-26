@@ -206,10 +206,11 @@ in `js/config.js` is empty, as it is in this repository.
 
 ## Publishing
 
-Every push to `main` is checked (`.github/workflows/deploy.yml`) and, where the
-repository has a copy to try changes on, published there ("TIMP dev": `--name` and
-`--icons tools/dev-icons`, its own service). A release, a tag `vX.Y.Z`, is published to
-GitHub Pages: checks, tests and the browser run again, then `tools/build.mjs`
+Work goes on `develop`; `main` holds only releases. Every push to `develop` is checked
+(`.github/workflows/deploy.yml`) and, where the repository has a copy to try changes on,
+published there ("TIMP dev": `--name` and `--icons tools/dev-icons`, its own service). A
+release is a pull request from `develop` to `main`, merged with a merge commit, then a
+tag `vX.Y.Z` on `main`, which is published to GitHub Pages: checks, tests and the browser run again, then `tools/build.mjs`
 fills in `js/config.js` from the repository's variables (`RESOLVER_URL`, `SHARE_URL`;
 empty, the copy works without them), adds their hosts to the Content-Security-Policy,
 and stamps the version of the offline copy. A fork publishes its own copy the same way,
@@ -247,7 +248,8 @@ much better than silence.
 
 ## Pull requests
 
-- One topic per pull request, with a description of what changes for the traveller.
+- Against `develop`, one topic per pull request, with a description of what changes for
+  the traveller.
 - Screenshots for visual changes, at phone width. If the change is visible in the
   pictures of the README, retake them with `node tools/screenshots.mjs` (it needs
   Chrome or Chromium, and only ever loads the example trip).
