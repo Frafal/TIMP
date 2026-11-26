@@ -1,6 +1,6 @@
 # Privacy policy
 
-Version of 26 November 2026. [In italiano](privacy.it.md).
+Version of 27 November 2026. [In italiano](privacy.it.md).
 
 ## Who is responsible
 

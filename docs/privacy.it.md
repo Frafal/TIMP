@@ -1,6 +1,6 @@
 # Informativa sulla privacy
 
-Versione del 26 novembre 2026. [In English](privacy.md).
+Versione del 27 novembre 2026. [In English](privacy.md).
 
 ## Chi è responsabile
 
