@@ -28,7 +28,31 @@ export const SHAPES = {
     handle: text("The name others see: lower case letters, digits, dots, dashes."),
     name: {type: "text", doc: "A display name; may be empty."},
     since: text("When the account was made (ISO date)."),
-    terms: {type: "text", null: true, doc: "The version of the terms and privacy policy the account accepted (TERMS); null before it was asked."}
+    terms: {type: "text", null: true, doc: "The version of the terms and privacy policy the account accepted (TERMS); null before it was asked."},
+    linked: {type: "linkedPhone", null: true, doc: "The newest phone added with a code in the last 14 days, for the account's other phones to say so once; null: none."}
+  },
+  linkedPhone: {
+    device: {type: "text", req: true, doc: "The phone added (its browser's words)."},
+    by: {type: "text", req: true, doc: "The device that approved it."},
+    at: text("When it made its passkey (ISO date)."),
+    passkey: text("Its passkey's id: removing it signs that phone out.")
+  },
+  linkRequest: {
+    id: text("The request's id."),
+    code: text("Shown on this phone, typed on one already signed in: two groups of four."),
+    secret: text("Kept by this phone, never shown: it alone may follow the request."),
+    expires: text("When the code stops working (ISO date).")
+  },
+  linkState: {
+    state: text("waiting, or approved (then what the new passkey signs).", {values: ["waiting", "approved"]}),
+    handle: {type: "text", doc: "Approved: the account the phone joins."},
+    by: {type: "text", doc: "Approved: the device that approved it."},
+    challengeId: {type: "text", doc: "Approved: sent back with the new passkey."},
+    publicKey: {type: "any", doc: "Approved: the options for navigator.credentials.create (WebAuthn), as JSON."}
+  },
+  linkAsker: {
+    device: {type: "text", req: true, doc: "The phone asking (its browser's words)."},
+    asked: text("When it asked (ISO date).")
   },
   session: {
     token: text("Goes in `Authorization: Bearer <token>` on every request; kept on the phone."),
@@ -118,7 +142,8 @@ export const SHAPES = {
     id: text("The passkey's id."),
     device: {type: "text", doc: "The device it was made on (its browser's words), empty if not known."},
     added: text("When it was added (ISO date)."),
-    lastUsed: {type: "text", req: true, null: true, doc: "When it last signed in (ISO date), or null."}
+    lastUsed: {type: "text", req: true, null: true, doc: "When it last signed in (ISO date), or null."},
+    byCode: {type: "bool", doc: "Added with a code approved on another device."}
   },
   recoveryState: {
     made: {type: "text", req: true, null: true, doc: "When the account's recovery codes were made (ISO date), or null: none."},
@@ -194,6 +219,13 @@ export const ROUTES = {
   register: {method: "POST", path: "/v1/auth/register", auth: false, body: {challengeId: text("From step one."), credential: {type: "any", req: true, doc: "The new passkey, as PublicKeyCredential.toJSON()."}}, answer: "session", doc: "Sign-up, step two: the account, its passkey, a session."},
   loginOptions: {method: "POST", path: "/v1/auth/login/options", auth: false, body: {}, answer: "ceremony", doc: "Sign-in, step one."},
   login: {method: "POST", path: "/v1/auth/login", auth: false, body: {challengeId: text("From step one."), credential: {type: "any", req: true, doc: "The passkey's answer, as PublicKeyCredential.toJSON()."}}, answer: "session", doc: "Sign-in, step two: a session."},
+  linkStart: {method: "POST", path: "/v1/auth/link", auth: false, body: {}, answer: "linkRequest",
+    doc: "A phone without a passkey of the account asks to join it: a code to show, approved on a device already signed in (approveLink). It works 10 minutes."},
+  linkState: {method: "POST", path: "/v1/auth/link/:id", auth: false, body: {secret: text("The request's secret.")}, answer: "linkState",
+    doc: "Asked every few seconds by the phone that started it: waiting, or approved with what its new passkey signs. 410 once expired or used."},
+  linkFinish: {method: "POST", path: "/v1/auth/link/:id/passkey", auth: false, body: {secret: text("The request's secret."), challengeId: text("From linkState."),
+    credential: {type: "any", req: true, doc: "The new passkey, as PublicKeyCredential.toJSON()."}}, answer: "session",
+    doc: "The new passkey on the account, marked as added with a code, and a session bound to it; the request used up."},
   logout: {method: "POST", path: "/v1/auth/logout", auth: true, body: {}, answer: "ok", doc: "Ends this session."},
   me: {method: "GET", path: "/v1/me", auth: true, answer: "user", doc: "The signed-in account."},
   acceptTerms: {method: "POST", path: "/v1/me/terms", auth: true, body: {terms: text("The version accepted: the current one (TERMS).")}, answer: "user", doc: "The account accepts the current terms of use and privacy policy."},
@@ -244,6 +276,10 @@ export const ROUTES = {
   addPasskey: {method: "POST", path: "/v1/account/passkeys", auth: true, body: {challengeId: text("From step one."), credential: {type: "any", req: true, doc: "The new passkey, as PublicKeyCredential.toJSON()."}}, answer: "ok",
     doc: "Step two: the passkey made on this device joins the account."},
   removePasskey: {method: "DELETE", path: "/v1/account/passkeys/:id", auth: true, answer: "ok", doc: "Takes a passkey off the account: never the last one; only with a recent sign-in."},
+  lookLink: {method: "POST", path: "/v1/account/links", auth: true, body: {code: text("The code shown on the other phone.")}, answer: "linkAsker",
+    doc: "Who asks with this code, before approving it. 404 for any code not waiting (wrong, expired, used)."},
+  approveLink: {method: "POST", path: "/v1/account/links/approve", auth: true, body: {code: text("The code shown on the other phone.")}, answer: "ok",
+    doc: "That phone may join this account: it then has 5 minutes to make its passkey. Only with a recent sign-in (403 \"sign in again\"), as for adding a passkey."},
   recovery: {method: "GET", path: "/v1/account/recovery", auth: true, answer: "recoveryState", doc: "Whether the account has recovery codes, and how many are left."},
   makeRecovery: {method: "POST", path: "/v1/account/recovery", auth: true, body: {}, answer: "recoveryCodes", doc: "Ten new recovery codes; those made before stop working. Only with a sign-in of the last 10 minutes (403 \"sign in again\")."},
   sessions: {method: "GET", path: "/v1/account/sessions", auth: true, answer: {sessions: {type: "list", of: "openSession", req: true}}, doc: "The devices signed in to the account."},
