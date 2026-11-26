@@ -72,10 +72,17 @@ const FILES = [
   "examples/demo-trip.json"
 ];
 
+// Some hosts answer index.html with a redirect to the folder (Cloudflare's static files).
+// A redirected answer given to the app's own page is refused by Chrome, and the app would
+// not open: the copy keeps only the content.
+async function keep(cache, url){
+  const res = await fetch(new Request(url, {cache: "reload"}));
+  if(!res.ok) throw new Error(`${url}: ${res.status}`);
+  await cache.put(url, res.redirected ? new Response(await res.blob(), {status: res.status, statusText: res.statusText, headers: res.headers}) : res);
+}
+
 self.addEventListener("install", event => {
-  event.waitUntil(
-    caches.open(SHELL).then(cache => cache.addAll(FILES.map(url => new Request(url, {cache: "reload"}))))
-  );
+  event.waitUntil(caches.open(SHELL).then(cache => Promise.all(FILES.map(url => keep(cache, url)))));
 });
 
 self.addEventListener("activate", event => {

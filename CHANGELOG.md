@@ -12,6 +12,9 @@ its own version: `travel-in-my-pocket/2` since 3.0. Files in `travel-in-my-pocke
   takes `--name` and `--icons`.
 - **The icon's teal is deeper**, a bottle green close to the app's ink, so it sits with the
   black buttons; the logo is centred in the icon, as much ground above as below.
+- **The app opens again from its offline copy on hosts that answer `index.html` with a
+  redirect** (Cloudflare's static files, so TIMP dev): Chrome refused the copy and showed
+  an error page from the second opening on. The copy now keeps only the content.
 - The "Your AI" sheet showed the wrong help line under the chats (a text written twice in
   the strings); a test now refuses a text written twice.
 

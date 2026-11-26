@@ -194,6 +194,22 @@ test("the service worker lists every file of the app", () => {
   assert.deepEqual([...files].sort(), precacheList().sort());
 });
 
+test("the copy kept offline is never a redirect, as hosts that send index.html to / answer", async () => {
+  const listeners = {}, stored = new Map();
+  const res = (url, redirected) => Object.defineProperty(new Response("<!doctype html>" + url, {headers: {"content-type": "text/html"}}), "redirected", {value: redirected});
+  const self = {location: new URL("https://app.example/"), registration: {scope: "https://app.example/"},
+    addEventListener: (type, f) => { listeners[type] = f; }};
+  const caches = {open: async () => ({put: async (url, r) => { stored.set(url, r); }})};
+  const fetch = async req => res(req.url, /index\.html$/.test(req.url));
+  const source = readFileSync(join(ROOT, "sw.js"), "utf8").replace(/const FILES = \[[\s\S]*?\];/, `const FILES = ["index.html", "js/app.js"];`);
+  new Function("self", "caches", "fetch", "Request", "Response", source)(self, caches, fetch, class { constructor(url){ this.url = new URL(url, "https://app.example/").href; } }, Response);
+  let done; listeners.install({waitUntil: p => { done = p; }});
+  await done;
+  assert.deepEqual([...stored.keys()].sort(), ["index.html", "js/app.js"]);
+  assert.equal(stored.get("index.html").redirected, false);
+  assert.equal(await stored.get("index.html").text(), "<!doctype html>https://app.example/index.html");
+});
+
 test("the manifest for Samsung Internet is the same, but shares text and links only", () => {
   const full = JSON.parse(readFileSync(join(ROOT, "manifest.webmanifest"), "utf8"));
   const basic = JSON.parse(readFileSync(join(ROOT, "manifest-basic.webmanifest"), "utf8"));
