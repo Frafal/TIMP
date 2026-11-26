@@ -569,6 +569,8 @@ h2.part{font:700 1.35rem var(--f-display);color:var(--ink);margin:14px 0 -6px}
 .acct .who small{font:500 .74rem var(--f-mono);color:var(--muted)}
 .acct .acts{display:flex;gap:6px;flex-wrap:wrap}
 .chats{display:grid;gap:10px}
+/* a code to read on one phone and type on another (LK1): large, spaced, mono */
+.lcode{margin:0;font:700 2rem/1 var(--f-mono);letter-spacing:.14em;text-align:center;padding:var(--sp-5) var(--sp-2);border-radius:var(--r-m);background:var(--bg);font-variant-numeric:tabular-nums}
 .me-actions{display:grid;gap:8px}
 .sheet-h{font:600 .7rem var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
 .people{display:grid;gap:8px}

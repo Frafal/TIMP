@@ -20,6 +20,78 @@
    "terms": {
     "type": "text",
     "null": true
+   },
+   "linked": {
+    "type": "linkedPhone",
+    "null": true
+   }
+  },
+  "linkedPhone": {
+   "device": {
+    "type": "text",
+    "req": true
+   },
+   "by": {
+    "type": "text",
+    "req": true
+   },
+   "at": {
+    "type": "text",
+    "req": true
+   },
+   "passkey": {
+    "type": "text",
+    "req": true
+   }
+  },
+  "linkRequest": {
+   "id": {
+    "type": "text",
+    "req": true
+   },
+   "code": {
+    "type": "text",
+    "req": true
+   },
+   "secret": {
+    "type": "text",
+    "req": true
+   },
+   "expires": {
+    "type": "text",
+    "req": true
+   }
+  },
+  "linkState": {
+   "state": {
+    "type": "text",
+    "req": true,
+    "values": [
+     "waiting",
+     "approved"
+    ]
+   },
+   "handle": {
+    "type": "text"
+   },
+   "by": {
+    "type": "text"
+   },
+   "challengeId": {
+    "type": "text"
+   },
+   "publicKey": {
+    "type": "any"
+   }
+  },
+  "linkAsker": {
+   "device": {
+    "type": "text",
+    "req": true
+   },
+   "asked": {
+    "type": "text",
+    "req": true
    }
   },
   "session": {
@@ -335,6 +407,9 @@
     "type": "text",
     "req": true,
     "null": true
+   },
+   "byCode": {
+    "type": "bool"
    }
   },
   "recoveryState": {
@@ -624,6 +699,45 @@
    "path": "/v1/auth/login",
    "auth": false,
    "body": {
+    "challengeId": {
+     "type": "text",
+     "req": true
+    },
+    "credential": {
+     "type": "any",
+     "req": true
+    }
+   },
+   "answer": "session"
+  },
+  "linkStart": {
+   "method": "POST",
+   "path": "/v1/auth/link",
+   "auth": false,
+   "body": {},
+   "answer": "linkRequest"
+  },
+  "linkState": {
+   "method": "POST",
+   "path": "/v1/auth/link/:id",
+   "auth": false,
+   "body": {
+    "secret": {
+     "type": "text",
+     "req": true
+    }
+   },
+   "answer": "linkState"
+  },
+  "linkFinish": {
+   "method": "POST",
+   "path": "/v1/auth/link/:id/passkey",
+   "auth": false,
+   "body": {
+    "secret": {
+     "type": "text",
+     "req": true
+    },
     "challengeId": {
      "type": "text",
      "req": true
@@ -1002,6 +1116,30 @@
    "method": "DELETE",
    "path": "/v1/account/passkeys/:id",
    "auth": true,
+   "answer": "ok"
+  },
+  "lookLink": {
+   "method": "POST",
+   "path": "/v1/account/links",
+   "auth": true,
+   "body": {
+    "code": {
+     "type": "text",
+     "req": true
+    }
+   },
+   "answer": "linkAsker"
+  },
+  "approveLink": {
+   "method": "POST",
+   "path": "/v1/account/links/approve",
+   "auth": true,
+   "body": {
+    "code": {
+     "type": "text",
+     "req": true
+    }
+   },
    "answer": "ok"
   },
   "recovery": {

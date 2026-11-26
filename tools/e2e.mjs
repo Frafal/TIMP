@@ -1547,19 +1547,25 @@ function fakeService(){
   const flags = {stale: false};                 // the sign-in no longer recent (more than ten minutes ago)
   const recovery = new Map();                   // recovery code → {who, used}
   const terms = new Map();                      // handle → the terms accepted (null: made before they were asked)
+  const links = new Map(), linked = new Map(), byCode = new Set(); // a phone by code: requests; per account, the newest phone in; its passkeys
+  // What a new passkey signs, as the service asks it (sign-up, recovery, one more, a phone by code).
+  const creation = (handle, data, exclude = []) => {
+    const id = "c" + ++n, challenge = b64("challenge-" + id);
+    challenges.set(id, {challenge, handle, ...data});
+    return {challengeId: id, publicKey: {challenge, rp: {id: "localhost", name: "TIMP"}, user: {id: b64("u-" + handle), name: handle, displayName: handle},
+      pubKeyCredParams: [{type: "public-key", alg: -7}], ...(exclude.length ? {excludeCredentials: exclude} : {}),
+      authenticatorSelection: {residentKey: "required", userVerification: "required"}, attestation: "none"}};
+  };
   const handler = async (method, path, body, headers) => {
     calls.push(method + " " + path);
     if(method === "POST" && path === "/v1/trips" && body.trip && refuse.has(body.trip.id)) return {status: 500, body: {error: "server: something went wrong"}};
     const ok = b => ({status: 200, body: b}), no = (status, error) => ({status, body: {error}});
-    const user = handle => ({id: "u-" + handle, handle, name: "", since: "2026-11-19T00:00:00.000Z", terms: terms.has(handle) ? terms.get(handle) : TERMS});
+    const user = handle => ({id: "u-" + handle, handle, name: "", since: "2026-11-19T00:00:00.000Z", terms: terms.has(handle) ? terms.get(handle) : TERMS, linked: linked.get(handle) || null});
     const session = handle => { const token = "tok-" + ++n; sessions.set(token, handle); return ok({token, user: user(handle)}); };
     if(method === "POST" && path === "/v1/auth/register/options"){
       if(body.terms !== TERMS) return no(400, "terms: accept the terms of use and the privacy policy");
       if(!codes.has(body.code)) return no(403, "code: not valid, expired or used");
-      const id = "c" + ++n, challenge = b64("challenge-" + id);
-      challenges.set(id, {challenge, handle: body.handle});
-      return ok({challengeId: id, publicKey: {challenge, rp: {id: "localhost", name: "TIMP"}, user: {id: b64("u-" + body.handle), name: body.handle, displayName: body.handle},
-        pubKeyCredParams: [{type: "public-key", alg: -7}], authenticatorSelection: {residentKey: "required", userVerification: "required"}, attestation: "none"}});
+      return ok(creation(body.handle, {}));
     }
     if(method === "POST" && path === "/v1/auth/register"){
       const c = challenges.get(body.challengeId), cred = body.credential, cd = client(cred);
@@ -1575,10 +1581,7 @@ function fakeService(){
     if(method === "POST" && path === "/v1/auth/recover/options"){
       const h = String(body.handle || "").trim().replace(/^@/, "").toLowerCase(), code = String(body.code || "").trim().toUpperCase(), r = recovery.get(code);
       if(!r || r.used || r.who !== h) return no(401, "recovery: handle or code not valid");
-      const id = "c" + ++n, challenge = b64("challenge-" + id);
-      challenges.set(id, {challenge, handle: h, recover: code});
-      return ok({challengeId: id, publicKey: {challenge, rp: {id: "localhost", name: "TIMP"}, user: {id: b64("u-" + h), name: h, displayName: h},
-        pubKeyCredParams: [{type: "public-key", alg: -7}], authenticatorSelection: {residentKey: "required", userVerification: "required"}, attestation: "none"}});
+      return ok(creation(h, {recover: code}));
     }
     if(method === "POST" && path === "/v1/auth/recover"){
       const c = challenges.get(body.challengeId), cred = body.credential, cd = client(cred);
@@ -1603,7 +1606,35 @@ function fakeService(){
       flags.stale = false;
       return session(keys.get(cred.id));
     }
+    // A phone by code: the request (its secret only for it), approved on a signed-in device, then its passkey.
+    if(method === "POST" && path === "/v1/auth/link"){
+      const id = "l" + ++n, l = {id, code: "K7PQ-4XM" + "ABCDEFGH"[n % 8], secret: "sec-" + n, device: headers["user-agent"] || "", asked: new Date().toISOString(), handle: "", by: "", used: false};
+      links.set(id, l);
+      return ok({id, code: l.code, secret: l.secret, expires: new Date(Date.now() + 600e3).toISOString()});
+    }
+    const lk = path.match(/^\/v1\/auth\/link\/([^/]+)(\/passkey)?$/), l = lk && links.get(lk[1]);
+    if(lk && method === "POST"){
+      if(!l || l.secret !== body.secret) return no(404, "link: unknown");
+      if(l.used) return no(410, "link: expired or used, start again");
+      if(!lk[2]) return ok(l.handle ? {state: "approved", handle: l.handle, by: l.by, ...creation(l.handle, {link: l.id})} : {state: "waiting"});
+      const c = challenges.get(body.challengeId), cred = body.credential, cd = client(cred);
+      if(!c || c.link !== l.id || cd.type !== "webauthn.create" || cd.challenge !== c.challenge) return no(400, "passkey: could not be checked");
+      l.used = true;
+      keys.set(cred.id, l.handle);
+      byCode.add(cred.id);
+      linked.set(l.handle, {device: l.device, by: l.by, at: new Date().toISOString(), passkey: cred.id});
+      return session(l.handle);
+    }
     const who = sessions.get(String(headers.authorization || "").replace("Bearer ", ""));
+    if(path.startsWith("/v1/account/links") && method === "POST"){
+      if(!who) return no(401, "sign in first");
+      const w = [...links.values()].find(x => !x.handle && !x.used && x.code.replace("-", "") === String(body.code || "").toUpperCase().replace(/[^A-Z0-9]/g, ""));
+      if(!w) return no(404, "code: not valid, expired or used");
+      if(path === "/v1/account/links") return ok({device: w.device, asked: w.asked});
+      if(flags.stale) return no(403, "sign in again: this needs a sign-in from the last 10 minutes");
+      Object.assign(w, {handle: who, by: headers["user-agent"] || ""});
+      return ok({ok: true});
+    }
     // The account as it is now, and the current terms accepted.
     if(method === "GET" && path === "/v1/me") return who ? ok(user(who)) : no(401, "session: sign in");
     if(method === "POST" && path === "/v1/me/terms"){
@@ -1714,19 +1745,13 @@ function fakeService(){
     if(path.startsWith("/v1/account/passkeys") || path.startsWith("/v1/account/sessions")){
       if(!who) return no(401, "sign in first");
       const token = String(headers.authorization || "").replace("Bearer ", "");
-      const mine = () => [...keys].filter(([, h]) => h === who).map(([id]) => ({id, device: "", added: "2026-11-19T00:00:00.000Z", lastUsed: null}));
+      const mine = () => [...keys].filter(([, h]) => h === who).map(([id]) => ({id, device: "", added: "2026-11-19T00:00:00.000Z", lastUsed: null, byCode: byCode.has(id)}));
       if(path === "/v1/account/passkeys" && method === "GET") return ok({passkeys: mine()});
       if(path === "/v1/account/sessions" && method === "GET")
         return ok({sessions: [...sessions].filter(([, h]) => h === who).map(([tk]) => ({id: "s-" + tk, device: headers["user-agent"] || "", since: "2026-11-20T08:00:00.000Z", current: tk === token}))});
       if(path === "/v1/account/sessions/end" && method === "POST"){ for(const [tk, h] of sessions) if(h === who && tk !== token) sessions.delete(tk); return ok({ok: true}); }
       if(flags.stale) return no(403, "sign in again: this needs a sign-in from the last 10 minutes");
-      if(path === "/v1/account/passkeys/options" && method === "POST"){
-        const id = "c" + ++n, challenge = b64("challenge-" + id);
-        challenges.set(id, {challenge, handle: who, adding: true});
-        return ok({challengeId: id, publicKey: {challenge, rp: {id: "localhost", name: "TIMP"}, user: {id: b64("u-" + who), name: who, displayName: who},
-          pubKeyCredParams: [{type: "public-key", alg: -7}], excludeCredentials: mine().map(k => ({type: "public-key", id: k.id})),
-          authenticatorSelection: {residentKey: "required", userVerification: "required"}, attestation: "none"}});
-      }
+      if(path === "/v1/account/passkeys/options" && method === "POST") return ok(creation(who, {adding: true}, mine().map(k => ({type: "public-key", id: k.id}))));
       if(path === "/v1/account/passkeys" && method === "POST"){
         const c = challenges.get(body.challengeId), cred = body.credential, cd = client(cred);
         if(!c || !c.adding || c.handle !== who || cd.type !== "webauthn.create" || cd.challenge !== c.challenge) return no(400, "passkey: could not be checked");
@@ -1788,7 +1813,7 @@ function fakeService(){
     }
     return no(404, "not found");
   };
-  handler.state = {trips, privs, groups, chat, calls, refuse, deleted, invites, members, flags, sessions, recovery, pubs, terms};
+  handler.state = {trips, privs, groups, chat, calls, refuse, deleted, invites, members, flags, sessions, recovery, pubs, terms, keys, links, linked};
   return handler;
 }
 
@@ -2337,6 +2362,69 @@ async function accountSteps({run, until, reload, page, blocked, service}){
     assert.match(await run(`return document.getElementById("toast").textContent;`), /^Signed in as @fra, with a new passkey: the others and the linked chats no longer work/);
     assert.deepEqual([...service.sessions.values()].filter(h => h === "fra").length, 1, "the old tablet signed out");
     assert.equal(service.recovery.get(codes[3]).used, true);
+    assert.deepEqual(blocked(), []);
+  });
+
+  await step("a phone by code (LK1-LK5): approved here after seeing who asks; on a phone without a passkey, its code, then its passkey; the other phones asked once", async () => {
+    const sheet = id => `dialog[aria-labelledby="${id}"]`;
+    // Another phone asks: on this one, signed in, the warning, who asks, then the approval.
+    service.links.set("l-tab", {id: "l-tab", code: "WXYZ-2345", secret: "s-tab", device: "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36",
+      asked: new Date().toISOString(), handle: "", by: "", used: false});
+    service.flags.stale = false;
+    await openMe();
+    await run(`document.querySelector("#app [data-me='devices']").click();`);
+    await until("the devices", `document.querySelector("dialog.sheet[open] [data-approve]")`);
+    await run(`document.querySelector("dialog.sheet[open] [data-approve]").click();`);
+    await until("the approval", `document.querySelector('${sheet("approve-title")} #approve-code')`);
+    assert.match(await text(`${sheet("approve-title")} .warns`), /^Only a code shown on one of your own phones\. TIMP never asks you for it/);
+    assert.equal(await run(`return document.querySelector('${sheet("approve-title")} [type=submit]').disabled;`), true, "nothing to approve before seeing who asks");
+    await run(`const i = document.getElementById("approve-code"); i.value = "wxyz 2345"; i.dispatchEvent(new Event("input"));`);
+    await until("who asks", `document.querySelector('${sheet("approve-title")} [data-asker] .who b')`);
+    assert.equal(await text(`${sheet("approve-title")} [data-asker] .who b`), "Android · Chrome");
+    await run(`document.querySelector('${sheet("approve-title")} form').requestSubmit();`);
+    await until("approved", `/^Approved: that phone makes its passkey now/.test(document.getElementById("toast").textContent)`);
+    assert.equal(service.links.get("l-tab").handle, "fra");
+    await run(`document.querySelector("dialog.sheet[open] [data-close]").click();`);
+
+    // This phone, signed out and without a passkey of the account: Sign in offers the other ways.
+    await openMe();
+    await run(`document.querySelector("#app [data-me='signout']").click();`);
+    await until("signed out", `document.querySelector(".acct [data-act='signin']")`, 15000);
+    await page("WebAuthn.clearCredentials", {authenticatorId});
+    await run(`document.querySelector(".acct [data-act='signin']").click();`);
+    await until("the other ways in", `document.querySelector('${sheet("here-title")} [data-pick="link"]')`, 20000);
+    await run(`document.querySelector('${sheet("here-title")} [data-pick="link"]').click();`);
+    await until("the code", `document.querySelector('${sheet("link-title")} .lcode')`);
+    const code = await text(`${sheet("link-title")} .lcode`);
+    assert.match(code, /^K7PQ-4XM[A-H]$/);
+    assert.match(await text(`${sheet("link-title")} [data-link]`), /You → Passkeys and devices → Approve another phone/);
+    // Approved on the other device; this phone follows by itself, then one tap makes its passkey.
+    const l = [...service.links.values()].find(x => x.code === code);
+    Object.assign(l, {handle: "fra", by: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"});
+    await until("approved", `document.querySelector('${sheet("link-title")} [data-make]')`, 15000);
+    assert.match(await text(`${sheet("link-title")} .passkey span`), /^Approved by @fra on Mac · Safari\./);
+    await run(`document.querySelector('${sheet("link-title")} [data-make]').click();`);
+    await until("signed in", `document.querySelector(".acct .who b") && document.querySelector(".acct .who b").textContent === "@fra"`, 15000);
+    assert.match(await run(`return document.getElementById("toast").textContent;`), /^This phone is in your account, @fra\./);
+    assert.equal(l.used, true);
+
+    // Another phone joins later: asked once here, and removed.
+    service.keys.set("k-intruder", "fra");
+    service.linked.set("fra", {device: "Mozilla/5.0 (Linux; Android 14) Chrome/130.0 Mobile", by: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0",
+      at: new Date(Date.now() + 1000).toISOString(), passkey: "k-intruder"});
+    service.flags.stale = false;
+    await reload();
+    await until("asked", `document.querySelector("dialog.ask[open] #ask-title") && document.querySelector("dialog.ask[open] #ask-title").textContent === "A phone joined your account"`, 15000);
+    assert.match(await text("dialog.ask[open] p"), /^Android · Chrome, .+, approved from Windows · Chrome\. Was it you\?$/);
+    await run(`document.querySelector('dialog.ask[open] [data-answer="remove"]').click();`);
+    await until("removed", `/^Removed: that phone is signed out/.test(document.getElementById("toast").textContent)`);
+    assert.equal(service.keys.has("k-intruder"), false);
+    service.calls.length = 0;
+    await reload();
+    for(let i = 0; i < 150 && !service.calls.includes("GET /v1/me"); i++) await new Promise(r => setTimeout(r, 100));
+    assert.ok(service.calls.includes("GET /v1/me"), "the account asked again");
+    await new Promise(r => setTimeout(r, 500));
+    assert.equal(await run(`return !!document.querySelector("dialog.ask[open]");`), false, "asked once");
     assert.deepEqual(blocked(), []);
   });
 

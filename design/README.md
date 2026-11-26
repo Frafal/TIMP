@@ -415,6 +415,25 @@ Info's costs (`costsSection`) and the account's sheets (`js/account.js`).
   be undone, always asked.
 - A sheet opens and closes its rows itself (`js/sheet.js`): one open at a time.
 
+## A phone by code
+
+A phone joins an account with a code it shows, approved on a device already signed in
+(`openSignInHere`, `openLinkPhone`, `openApprove` in `js/account.js`; the service's
+`src/core/links.ts`): how to add any phone, and how the app moves to a new address.
+
+- **LK1** The new phone shows the code, the signed-in device approves it: never the other
+  way, so nobody is asked to read a code to someone else. The code (`.lcode`): large, mono,
+  in two groups of four, on one line at any width.
+- **LK2** Approving shows who asks (the device, as its browser says, and when) after a
+  warning in the warn colours (`.warns`), and needs the passkey asked again: Approve is
+  disabled until the asker is shown.
+- **LK3** A code works 10 minutes, once; the new phone follows it by itself and, approved,
+  makes its passkey with one tap (iPhones allow a passkey prompt only on a tap).
+- **LK4** The account's other devices are asked once, "A phone joined your account", with
+  Remove it (red) and It was me; the passkey's row says "added with a code".
+- **LK5** Sign in stays one tap; when this phone has no passkey of the account (the prompt
+  closed or empty), a sheet offers the phone already signed in first, a recovery code last.
+
 ## Sheets
 
 A sheet comes up over the page for what is done apart: a form, the history, finding
