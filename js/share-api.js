@@ -10,6 +10,10 @@
 
 export const API = "1";
 
+// The version of the terms of use and of the privacy policy (docs/terms.md,
+// docs/privacy.md): accepted at sign-up, and again by every account when it changes.
+export const TERMS = "2026-11-26";
+
 /*
  * A field: {type, req, null, values, of, doc}
  *   type: "text" | "number" | "bool" | "any" | "list" (items: `of`) | the name of a shape
@@ -23,7 +27,8 @@ export const SHAPES = {
     id: text("The account's id."),
     handle: text("The name others see: lower case letters, digits, dots, dashes."),
     name: {type: "text", doc: "A display name; may be empty."},
-    since: text("When the account was made (ISO date).")
+    since: text("When the account was made (ISO date)."),
+    terms: {type: "text", null: true, doc: "The version of the terms and privacy policy the account accepted (TERMS); null before it was asked."}
   },
   session: {
     token: text("Goes in `Authorization: Bearer <token>` on every request; kept on the phone."),
@@ -183,7 +188,7 @@ export const ROUTES = {
   health: {method: "GET", path: "/v1/health", auth: false, answer: {ok: {type: "bool", req: true}, api: {type: "list", of: "text", req: true, doc: "The API versions served."},
     version: {type: "text", doc: "The service's own release (SemVer), apart from the API version."},
     commit: {type: "text", doc: "The commit that release was built from, where it says."}}, doc: "Whether the service is up, which API versions it has, which release runs."},
-  registerOptions: {method: "POST", path: "/v1/auth/register/options", auth: false, body: {code: text("A sign-up code."), handle: text("The handle wanted.")}, answer: "ceremony", doc: "Sign-up, step one: the code and the handle are checked; the phone gets what its passkey signs."},
+  registerOptions: {method: "POST", path: "/v1/auth/register/options", auth: false, body: {code: text("A sign-up code."), handle: text("The handle wanted."), terms: {type: "text", doc: "The version of the terms and privacy policy accepted (TERMS): required by the service since 1.14.0."}}, answer: "ceremony", doc: "Sign-up, step one: the code and the handle are checked, the terms accepted; the phone gets what its passkey signs."},
   recoverOptions: {method: "POST", path: "/v1/auth/recover/options", auth: false, body: {handle: text("The account's handle."), code: text("One of its recovery codes.")}, answer: "ceremony", doc: "Every passkey lost, step one: the handle and a recovery code are checked (one answer for any mistake); the phone gets what a new passkey signs. The code is not used yet."},
   recover: {method: "POST", path: "/v1/auth/recover", auth: false, body: {challengeId: text("From step one."), credential: {type: "any", req: true, doc: "The new passkey, as PublicKeyCredential.toJSON()."}}, answer: "session", doc: "Step two: the code used (once, for good), the new passkey on the account, every other device signed out, a session here."},
   register: {method: "POST", path: "/v1/auth/register", auth: false, body: {challengeId: text("From step one."), credential: {type: "any", req: true, doc: "The new passkey, as PublicKeyCredential.toJSON()."}}, answer: "session", doc: "Sign-up, step two: the account, its passkey, a session."},
@@ -191,6 +196,7 @@ export const ROUTES = {
   login: {method: "POST", path: "/v1/auth/login", auth: false, body: {challengeId: text("From step one."), credential: {type: "any", req: true, doc: "The passkey's answer, as PublicKeyCredential.toJSON()."}}, answer: "session", doc: "Sign-in, step two: a session."},
   logout: {method: "POST", path: "/v1/auth/logout", auth: true, body: {}, answer: "ok", doc: "Ends this session."},
   me: {method: "GET", path: "/v1/me", auth: true, answer: "user", doc: "The signed-in account."},
+  acceptTerms: {method: "POST", path: "/v1/me/terms", auth: true, body: {terms: text("The version accepted: the current one (TERMS).")}, answer: "user", doc: "The account accepts the current terms of use and privacy policy."},
   trips: {method: "GET", path: "/v1/trips", auth: true, answer: {trips: {type: "list", of: "tripSummary", req: true}}, doc: "The user's trips and those shared with them, newest change first."},
   createTrip: {method: "POST", path: "/v1/trips", auth: true, body: {trip: {type: "any", req: true, doc: "A trip file with its version, as the app keeps it."}}, answer: "pushResult", doc: "A trip sent for the first time (again: a push)."},
   trip: {method: "GET", path: "/v1/trips/:id", auth: true, answer: "tripSummary", doc: "One trip."},

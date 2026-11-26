@@ -4,6 +4,7 @@
 
 import { t, getLang } from "./i18n.js";
 import { esc } from "./util.js";
+import { REPO_URL } from "./config.js";
 import { openSheet, row, rowValue } from "./sheet.js";
 import { ask } from "./ask.js";
 import { signUp, ShareError, linkedApps, unlinkApp, passkeys, openSessions, endOtherSessions, removePasskey, addPasskey, needsSignIn, signInAgain,
@@ -32,6 +33,33 @@ export function accountError(e){
  *   onSignIn()     the person has an account already
  *   onRecover()    the person lost every passkey and has a recovery code
  */
+// The terms of use and the privacy policy, in the app's language (docs/terms.md,
+// docs/privacy.md and their Italian twins), opened apart from the app.
+export const legalUrl = name => `${REPO_URL || "https://github.com/Frafal/TIMP"}/blob/main/docs/${name}${getLang() === "it" ? ".it" : ""}.md`;
+const legalLink = (name, label) => `<a href="${esc(legalUrl(name))}" target="_blank" rel="noopener">${esc(label)}</a>`;
+// A sentence of the strings with the two documents as links in it.
+const agreeText = key => esc(t(key, {terms: "\u0001", privacy: "\u0002"})).replace("\u0001", legalLink("terms", t("termsWord"))).replace("\u0002", legalLink("privacy", t("privacyWord")));
+
+/**
+ * The terms changed, or the account was made before they were asked: read and accept
+ * them to go on as before. onAccept() saves the acceptance; closed without, asked again
+ * next time.
+ */
+export function openTerms({onAccept}){
+  const dlg = openSheet({id: "terms-title", title: t("termsTitle"), body: `
+    <p>${agreeText("termsNew")}</p>
+    <p class="errbox" data-error role="alert" hidden></p>
+    <div class="sheet-actions"><span class="grow"></span><button type="button" class="btn" data-close>${esc(t("termsLater"))}</button><button type="button" class="btn primary" data-accept>${esc(t("termsAccept"))}</button></div>`});
+  dlg.addEventListener("click", async e => {
+    const b = e.target.closest("[data-accept]");
+    if(!b) return;
+    b.disabled = true;
+    try{ await onAccept(); dlg.close(); }
+    catch(err){ const box = dlg.querySelector("[data-error]"); box.textContent = accountError(err); box.hidden = false; b.disabled = false; }
+  });
+  return dlg;
+}
+
 export function openSignUp(o){
   const dlg = openSheet({id: "acct-title", title: t("signUpTitle"), form: true, body: `
     <p class="foot">${esc(t("accountHelp"))}</p>
@@ -45,6 +73,7 @@ export function openSignUp(o){
       <p class="foot">${esc(t("fHandleHelp"))}</p>
     </div>
     <div class="passkey">${FINGER}<span>${esc(t("passkeyHelp"))}</span></div>
+    <label class="agree"><input type="checkbox" id="acct-terms"><span>${agreeText("agreeTerms")}</span></label>
     <p class="errbox" data-error role="alert" hidden></p>
     <p class="foot"><button type="button" class="tbtn" data-recover>${esc(t("lostPasskey"))}</button></p>
     <div class="sheet-actions">
@@ -63,6 +92,7 @@ export function openSignUp(o){
     const code = $("#acct-code").value.trim(), handle = $("#acct-handle").value.trim();
     if(!code) return fail(t("codeRequired"), "#acct-code");
     if(!/^[a-zA-Z0-9][a-zA-Z0-9._-]{2,29}$/.test(handle)) return fail(t("handleBad"), "#acct-handle");
+    if(!$("#acct-terms").checked) return fail(t("termsRequired"), "#acct-terms");
     const go = $("[type=submit]");
     go.disabled = true;
     try{

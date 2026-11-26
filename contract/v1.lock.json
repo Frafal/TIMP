@@ -16,6 +16,10 @@
    "since": {
     "type": "text",
     "req": true
+   },
+   "terms": {
+    "type": "text",
+    "null": true
    }
   },
   "session": {
@@ -553,6 +557,9 @@
     "handle": {
      "type": "text",
      "req": true
+    },
+    "terms": {
+     "type": "text"
     }
    },
    "answer": "ceremony"
@@ -639,6 +646,18 @@
    "method": "GET",
    "path": "/v1/me",
    "auth": true,
+   "answer": "user"
+  },
+  "acceptTerms": {
+   "method": "POST",
+   "path": "/v1/me/terms",
+   "auth": true,
+   "body": {
+    "terms": {
+     "type": "text",
+     "req": true
+    }
+   },
    "answer": "user"
   },
   "trips": {

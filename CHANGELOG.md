@@ -4,6 +4,18 @@ Versions follow [Semantic Versioning](https://semver.org/). The trip file format
 its own version: `travel-in-my-pocket/2` since 3.0. Files in `travel-in-my-pocket/1`
 (1.0 to 2.4) still load: the app converts them.
 
+## 4.14.0
+
+- **Terms of use and privacy policy** for the service, in English and Italian
+  (`docs/terms.md`, `docs/privacy.md` and their Italian twins): who is responsible, what is
+  kept, why and for how long, who helps and where, your rights.
+- **Signing up asks to accept them**: you are 16 or older, you accept the terms of use and
+  you have read the privacy policy, both linked. The service keeps the version and the date
+  (they are in your data's export).
+- **When they change**, and for accounts made before them, TIMP asks once to read and
+  accept them; links to both at the end of You.
+- Needs the service 1.14.0.
+
 ## 4.13.0 · the first milestone
 
 **Your AI is your travel agent.** With this release TIMP is what it set out to be: a chat

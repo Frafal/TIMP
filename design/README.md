@@ -372,7 +372,11 @@ phone's settings (`renderMe`). TIMP's business: your travel agent is your AI.
 - **YO2** This phone's settings as rows with their value, opened in place, one at a time:
   language, theme, your currency, the map (its key inside).
 - **YO3** Keep it on your Home Screen as a row, only when not installed.
-- **YO4** About last, small.
+- **YO4** About last, small; with the service, links to the privacy policy and the terms of
+  use.
+- **YO5** Signing up asks to accept the terms: a box (16 or older, terms of use, privacy
+  policy, both linked), required. When they change, or for an account made before them, a
+  sheet asks once a session, not over another sheet: Accept, Not now.
 
 ## Costs, your AI, devices
 

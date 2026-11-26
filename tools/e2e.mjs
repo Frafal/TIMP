@@ -14,6 +14,7 @@ import { addStop, addAlternative } from "../js/edit.js";
 import { placeOf } from "../js/weather.js";
 import { splitPrivate } from "../js/private.js";
 import { publishable } from "../js/publish.js";
+import { TERMS } from "../js/share-api.js";
 import { oldStopId } from "../js/ids.js";
 
 // A stop of the example once loaded, by the id the file gives it: the id it becomes
@@ -1545,13 +1546,15 @@ function fakeService(){
   const invites = new Map(), members = new Map(); // token → {trip, role, usedBy, revoked}; trip → user → role
   const flags = {stale: false};                 // the sign-in no longer recent (more than ten minutes ago)
   const recovery = new Map();                   // recovery code → {who, used}
+  const terms = new Map();                      // handle → the terms accepted (null: made before they were asked)
   const handler = async (method, path, body, headers) => {
     calls.push(method + " " + path);
     if(method === "POST" && path === "/v1/trips" && body.trip && refuse.has(body.trip.id)) return {status: 500, body: {error: "server: something went wrong"}};
     const ok = b => ({status: 200, body: b}), no = (status, error) => ({status, body: {error}});
-    const user = handle => ({id: "u-" + handle, handle, name: "", since: "2026-11-19T00:00:00.000Z"});
+    const user = handle => ({id: "u-" + handle, handle, name: "", since: "2026-11-19T00:00:00.000Z", terms: terms.has(handle) ? terms.get(handle) : TERMS});
     const session = handle => { const token = "tok-" + ++n; sessions.set(token, handle); return ok({token, user: user(handle)}); };
     if(method === "POST" && path === "/v1/auth/register/options"){
+      if(body.terms !== TERMS) return no(400, "terms: accept the terms of use and the privacy policy");
       if(!codes.has(body.code)) return no(403, "code: not valid, expired or used");
       const id = "c" + ++n, challenge = b64("challenge-" + id);
       challenges.set(id, {challenge, handle: body.handle});
@@ -1601,6 +1604,14 @@ function fakeService(){
       return session(keys.get(cred.id));
     }
     const who = sessions.get(String(headers.authorization || "").replace("Bearer ", ""));
+    // The account as it is now, and the current terms accepted.
+    if(method === "GET" && path === "/v1/me") return who ? ok(user(who)) : no(401, "session: sign in");
+    if(method === "POST" && path === "/v1/me/terms"){
+      if(!who) return no(401, "session: sign in");
+      if(body.terms !== TERMS) return no(400, "terms: only the current version can be accepted");
+      terms.set(who, TERMS);
+      return ok(user(who));
+    }
     // Sharing: invites (a token, once), what is pending, members; accepting one.
     // A published trip, for anyone: the copy made as the service makes it; 410 once withdrawn.
     const pg = path.match(/^\/v1\/public\/([^/]+)$/);
@@ -1777,7 +1788,7 @@ function fakeService(){
     }
     return no(404, "not found");
   };
-  handler.state = {trips, privs, groups, chat, calls, refuse, deleted, invites, members, flags, sessions, recovery, pubs};
+  handler.state = {trips, privs, groups, chat, calls, refuse, deleted, invites, members, flags, sessions, recovery, pubs, terms};
   return handler;
 }
 
@@ -1797,15 +1808,27 @@ async function accountSteps({run, until, reload, page, blocked, service}){
     assert.equal(await text(".acct .who b"), "Account");
     await run(`document.querySelector(".acct [data-act='signup']").click();`);
     await until("the form", `document.querySelector("dialog.sheet[open] #acct-code")`);
-    // A wrong code: said in the form, nothing made.
+    // The terms not accepted: said, nothing sent; the box links the two documents.
     await run(`document.getElementById("acct-code").value = "WRONG-CODE"; document.getElementById("acct-handle").value = "fra"; document.querySelector("dialog.sheet[open] form").requestSubmit();`);
     await until("the error", `!document.querySelector("dialog.sheet[open] [data-error]").hidden`);
+    assert.equal(await text("dialog.sheet[open] [data-error]"), "To make an account, tick that you accept the terms.");
+    assert.deepEqual(await run(`return [...document.querySelectorAll("dialog.sheet[open] .agree a")].map(a => a.getAttribute("href").split("/docs/")[1]);`), ["terms.md", "privacy.md"]);
+    // A wrong code: said in the form, nothing made.
+    await run(`document.getElementById("acct-terms").checked = true; document.querySelector("dialog.sheet[open] form").requestSubmit();`);
+    await until("the code refused", `/code does not work/.test(document.querySelector("dialog.sheet[open] [data-error]").textContent)`);
     assert.equal(await text("dialog.sheet[open] [data-error]"), "That code does not work: wrong, expired or used.");
     await run(`document.getElementById("acct-code").value = "TEST-CODE-0000-0001"; document.querySelector("dialog.sheet[open] form").requestSubmit();`);
     await until("signed in", `document.querySelector(".acct .who b") && document.querySelector(".acct .who b").textContent === "@fra"`, 15000);
     assert.equal(await run(`return !!document.querySelector("dialog.sheet[open]");`), false);
+    // An account made before the terms were asked: at the next start, read and accept them.
+    service.terms.set("fra", null);
     // Kept on the phone: still signed in after a reload.
     await reload();
+    await until("the terms to accept", `document.querySelector("dialog.sheet[open] [data-accept]")`, 15000);
+    assert.match(await text("dialog.sheet[open] p"), /^Before you go on: read TIMP's terms of use and privacy policy\./);
+    await run(`document.querySelector("dialog.sheet[open] [data-accept]").click();`);
+    await until("accepted", `!document.querySelector("dialog.sheet[open]")`);
+    assert.equal(service.terms.get("fra"), TERMS);
     await run(`location.hash = "#me";`);
     await until("still signed in", `document.querySelector(".acct .who b") && document.querySelector(".acct .who b").textContent === "@fra"`);
     // Out, then in again with the same passkey (the phone lists it; one here).

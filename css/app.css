@@ -596,6 +596,9 @@ h2.part{font:700 1.35rem var(--f-display);color:var(--ink);margin:14px 0 -6px}
 .chat .who small{font:500 .74rem var(--f-mono);color:var(--muted)}
 .sheet .passkey{display:grid;place-items:center;gap:6px;text-align:center;padding:6px 0 2px;color:var(--muted);font:400 .86rem var(--f-body)}
 .sheet .passkey svg{width:44px;height:44px;color:var(--ink)}
+/* accepting the terms at sign-up: a box, the sentence with its two links */
+.sheet .agree{display:flex;gap:var(--sp-3);align-items:flex-start;font-size:var(--fs-m);color:var(--muted)}
+.sheet .agree input{width:20px;height:20px;min-height:0;padding:0;margin:1px 0 0;flex:none;accent-color:var(--ink)}
 .btn svg{width:20px;height:20px;flex:none}
 .devices section{display:grid;gap:var(--gap-related)}
 .publish section,.pub{display:grid;gap:var(--gap-related)}

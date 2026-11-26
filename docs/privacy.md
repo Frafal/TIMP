@@ -1,72 +1,73 @@
-# Privacy, in full
+# Privacy policy
 
-The [README](../README.md#privacy) has the short version. This is everything the app
-sends, to whom, and what stays on your phone.
+Version of 26 November 2026. [In italiano](privacy.it.md).
 
-## The app
+## Who is responsible
 
-- Trip files are read on the device and stored in the browser's local database
-  (IndexedDB). They are never sent to the server that hosts the app.
-- No analytics, no cookies and no third-party fonts or scripts at startup. The only
-  library, MapLibre, is served with the app and loaded only when you open the
-  interactive map.
-- When you open the interactive map, its data is requested from
-  [OpenFreeMap](https://openfreemap.org/) (OpenStreetMap as vector tiles: no key, no
-  cookies), from OpenStreetMap when OpenFreeMap does not answer, or from Google. They
-  see your IP address and the area you look at.
-- "Map" and "Directions" links open Google Maps.
-- When you add or change a stop and its position has to be looked up, its name and
-  address are sent to Google (with a key) or to OpenStreetMap. A Google Maps short link
-  you paste or share is sent to the link resolver, if the app has one.
-- When a cost in another currency has to be converted, the app asks
-  [Frankfurter](https://frankfurter.dev/) for the exchange rates of that month: every
-  currency against the euro, so the request carries only the month, never an amount, a
-  place or the trip's currency. Each month is kept on the phone.
-- Nothing else of the trip is sent.
-- The link resolver keeps nothing: no storage, no logs. Cloudflare, which runs it, sees
-  the request like any web service. Its code is [worker/resolve.js](../worker/resolve.js).
-- A saved trip file goes only where you send it. When the trip has private expenses,
-  the app asks each time whether they go in the file.
-- A Content-Security-Policy in `index.html` lets the page load code only from the app
-  itself and from Google's map servers, and send requests only to the services above.
-  Text in a trip file is always escaped; the policy is a second lock in case that ever
-  fails.
+Francesco Falqui, a private person, is the controller of the personal data of TIMP's
+service (accounts, sync, sharing, publishing, linked chats). Write to
+**privacy@usetimp.com** for anything about your data.
 
-## With an account
+In short: without an account your trips stay on your phone. An account needs only a name
+you choose and a passkey: no email, no password. No ads, no tracking, nothing sold. Your
+trips are encrypted where they are kept, in the European Union.
 
-- An account is optional, and only on a copy of the app that has a sharing service.
-  Making one sends that service a name and the public half of a passkey (the key itself
-  never leaves the phone): no password, no email. Without an account nothing changes.
-- Signed in, your trips and your private expenses go to the service too, encrypted
-  where they are kept, so that they are on your other phones and shared only with the
-  people you invite.
-- **Chat apps.** A chat app (Claude, ChatGPT…) reaches your trips only if you link it to
-  your account: the app shows who asks, what it will be able to do and where the answer
-  goes, and you allow or deny it there, with your passkey (asked again if you did not
-  just sign in). The chat app gets a key of its own, never your passkey or your session;
-  your private expenses only if you tick them. You → Your AI shows which chats can
-  reach your trips, and unlinks one at once.
-- **Who can get in** is up to you: You → Passkeys and devices lists your passkeys and
-  the devices signed in. Add a passkey on each phone you use, take one off (never the
-  last), sign out every other device at once. Adding or taking off a passkey asks for
-  your passkey again if you did not just sign in, so a phone left open is not enough to
-  change who can get in. Removing a passkey signs out the devices it opened. The service
-  keeps the name each browser gives itself, to tell your devices apart.
-- **Recovery codes**, made there and shown once, let you back in if you lose every
-  passkey: the service keeps only their hashes, each works once, and using one replaces
-  your passkeys with a new one on that phone, signs every other device out and unlinks
-  your chats. Whoever has a code can get in: keep them away from your phone.
-- **Publishing.** A trip you publish (Share → With the link) is a page anyone with its
-  address can read, even without the app; it never shows up in searches. Only the
-  version you publish, and only what you reviewed first: your private expenses, a
-  Google key and the trip's history never go; booking codes, phone numbers, emails and
-  where you sleep are found and taken out unless you keep them; the dates show as days
-  of the week unless you choose the real ones. Withdraw it whenever you want: the page
-  then says it was withdrawn. Copies others made with "Use as a base" stay theirs.
-- A trip someone else published opens in your app read only ("Open in TIMP" on its
-  page): it stays on your phone and never goes to your account. "Use as a base" makes a
-  copy all yours, which says where it came from (`basedOn`); the original's author
-  learns nothing of it.
-- **Your data is yours:** You → Export my data gives you a copy of everything the
-  service keeps about you; Delete account deletes all of it for good (your handle
-  written again, then your passkey).
+## The app, with or without an account
+
+- Trips live in your browser's storage on the phone. The app has no cookies, no analytics
+  and no third-party scripts at startup; what it keeps on the phone is only what it needs
+  to work. Google's map code loads only if you choose Google Maps, under Google's terms.
+- Your phone asks other services only for what a feature needs, and they see your IP
+  address: the map tiles (OpenFreeMap, OpenStreetMap or Google) for the area you look at;
+  a stop's name and address to find its position (Google with a key, otherwise
+  OpenStreetMap); a Google Maps short link to TIMP's link resolver, which keeps nothing;
+  the month of an exchange rate from Frankfurter, never an amount or a place.
+- The weather is asked of TIMP's service with a place rounded to about 10 km; the service
+  asks MET Norway with at most a kilometre of precision and keeps nothing about who asked.
+- The app's files are hosted by GitHub Pages, which sees your IP address when they load.
+- A trip file you save goes only where you send it; private expenses go in it only if you
+  say so.
+
+## With an account: what is kept, why, for how long
+
+| What | Why | Legal basis | Kept |
+|---|---|---|---|
+| Your name (handle), your passkeys' public keys, the name each browser gives itself | Your account, signing in, telling your devices apart | Contract (GDPR art. 6.1.b) | Until you delete the account |
+| Sessions and recovery codes, as hashes | Keeping you signed in, letting you back in | Contract | Sessions 180 days or until you sign out; codes until used or replaced |
+| Your trips, their versions and your private expenses, encrypted | Your trips on every phone, shared with whom you choose | Contract | Until you delete them or the account |
+| Who a trip is shared with, invitations, what you show the group | Sharing | Contract | Invitations 14 days; the rest until removed |
+| A trip you publish | The page you chose to publish | Contract | Until you withdraw it |
+| The chats you link (which app, what it may do, when it was used) and their keys, as hashes | Letting your AI work on your trips | Contract | Until you unlink it; keys 1 hour, renewable for 60 days |
+| The invitation you signed up with | Accounts are by invitation | Legitimate interest (art. 6.1.f) | Until you delete the account |
+| A security log: sign-ins, sign-outs, chats linked, trips deleted… by an internal number, never trip content, addresses or IPs | Security, preventing abuse | Legitimate interest | 180 days |
+| The version of the terms of use and of this policy you accepted, and when | Proof of acceptance | Legitimate interest | Until you delete the account |
+
+The service keeps no request logs. Network addresses are used for a minute, to limit
+abuse, and not stored. Changes you made to a trip someone else shared with you stay in
+their trip after you leave, no longer linked to you.
+
+## Who helps, and where
+
+- **Cloudflare** runs the service and its database. The database is in the European Union
+  and stays there; Cloudflare's network may carry requests outside it, under its data
+  processing agreement and the EU's standard contractual clauses.
+- **GitHub** hosts the app's files. **MET Norway** gets a rounded place for the weather.
+  The map, search and exchange-rate services are asked by your phone, as above.
+- **Your AI chat**: when you link Claude, ChatGPT or another chat, what it reads of your
+  trips goes to that company, under its own terms. You choose which, and unlink it in
+  You → Your AI whenever you want.
+
+## Your rights
+
+- See and take everything the service keeps about you: You → Export my data.
+- Delete everything: You → Delete account, at once. Backups keep the database's history
+  for up to 30 days, then it is gone from them too.
+- Correct, restrict or object: change your trips in the app, or write to
+  privacy@usetimp.com.
+- Complain to the Italian supervisory authority, the Garante per la protezione dei dati
+  personali (garanteprivacy.it), or to the one where you live.
+
+## Age, and changes
+
+An account is for people aged 16 or more. When this policy changes, the app tells you and
+asks you to read it before you go on.

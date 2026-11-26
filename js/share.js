@@ -8,7 +8,7 @@
 
 import { SHARE_URL } from "./config.js";
 import { getKV, setKV, delKV } from "./store.js";
-import { ROUTES, pathOf, checkAnswer } from "./share-api.js";
+import { ROUTES, TERMS, pathOf, checkAnswer } from "./share-api.js";
 
 const SESSION = "share:session";
 
@@ -105,9 +105,22 @@ async function keep(s){
   return s.user;
 }
 
-/** A new account: a sign-up code, a handle, a passkey. The user, or null if the person cancelled. */
+// The account as the service answers it now, kept with the session.
+async function keepUser(user){
+  const s = await session();
+  if(s) await setKV(SESSION, {...s, user});
+  return user;
+}
+
+/** The signed-in account as the service has it now: its terms accepted, or not yet. */
+export const whoAmI = async () => keepUser(await call("me"));
+
+/** The current terms of use and privacy policy accepted (TERMS): the account, as now. */
+export const acceptTerms = async () => keepUser(await call("acceptTerms", {body: {terms: TERMS}}));
+
+/** A new account: a sign-up code, a handle, the terms accepted, a passkey. The user, or null if the person cancelled. */
 export async function signUp(code, handle){
-  const opt = await call("registerOptions", {body: {code, handle}});
+  const opt = await call("registerOptions", {body: {code, handle, terms: TERMS}});
   let cred;
   try{ cred = await navigator.credentials.create({publicKey: creationOptions(opt.publicKey)}); }
   catch(e){ if(cancelled(e)) return null; throw e; }

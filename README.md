@@ -95,7 +95,9 @@ it has your hotels and your dates.
 - With an account, trips go to its service encrypted, only to the people and chats you
   allow. Export or delete everything whenever you want.
 
-In detail: [docs/privacy.md](docs/privacy.md).
+In detail: the [privacy policy](docs/privacy.md) ([in italiano](docs/privacy.it.md)) and the
+[terms of use](docs/terms.md) of the service. Your data: privacy@usetimp.com; anything
+else: hello@usetimp.com.
 
 ## Google Maps, your own copy, development
 

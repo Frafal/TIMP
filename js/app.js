@@ -29,12 +29,13 @@ import { isChanges, applyChanges, outline, changesBrief } from "./changes.js";
 import { diffTrips, counts } from "./diff.js";
 import { describe, openHistory } from "./history.js";
 import { shortId, canonical, contentOf } from "./version.js";
-import { weatherOf, hasService, linkedApps, passkeys, session as shareSession, signIn, signOut, serviceApi, deleteFromAccount, leaveTrip, chatRequestId, chatRequest, answerChat, onThisComputer, exportAccount, deleteAccount, lockOnAccount, inviteToken, acceptInvite, publicTrip, publicLink, pageUrl, tripHistory, tripMembers } from "./share.js";
+import { weatherOf, hasService, linkedApps, passkeys, whoAmI, acceptTerms, session as shareSession, signIn, signOut, serviceApi, deleteFromAccount, leaveTrip, chatRequestId, chatRequest, answerChat, onThisComputer, exportAccount, deleteAccount, lockOnAccount, inviteToken, acceptInvite, publicTrip, publicLink, pageUrl, tripHistory, tripMembers } from "./share.js";
 import { openShareSheet } from "./sharing.js";
 import { chooseFirstDay } from "./publishing.js";
 import { asBase } from "./publish.js";
 import { syncTrip, syncPrivate, syncGroup, withGroup, whereOf, pendingTicks } from "./sync.js";
-import { openSignUp, openLinkedApps, openDevices, openRecover, accountError, recently } from "./account.js";
+import { openSignUp, openLinkedApps, openDevices, openRecover, openTerms, legalUrl, accountError, recently } from "./account.js";
+import { TERMS } from "./share-api.js";
 import { searchTrip } from "./search.js";
 import { PARTS, partOf, minutesOf, atTime } from "./parts.js";
 import { openSearch, closeSearch, searching } from "./search-sheet.js";
@@ -1377,6 +1378,7 @@ function renderMe(){
   </div>
   <section class="sec about"><p class="foot">TIMP · Travel in my pocket${S.version ? " · " + esc(t("version", {v: S.version})) : ""}${REPO_URL ? ` · <a href="${esc(REPO_URL)}" target="_blank" rel="noopener">GitHub ↗</a>` : ""}</p>
     <p class="foot">${esc(t("wxCredit"))}</p>
+    ${hasService() ? `<p class="foot"><a href="${esc(legalUrl("privacy"))}" target="_blank" rel="noopener">${esc(t("legalPrivacy"))}</a> · <a href="${esc(legalUrl("terms"))}" target="_blank" rel="noopener">${esc(t("legalTerms"))}</a></p>` : ""}
     ${store.isPersistent() ? "" : `<p class="foot">${esc(t("storageWarn"))}</p>`}
   </section>`;
 }
@@ -1470,6 +1472,7 @@ function syncNow(){
       // A new phone: nothing open yet, the trips just arrived: one is opened, so they show.
       if(!S.rec && S.records.length) await openRecord(S.records[S.records.length - 1]);
       S.sync = errors.size ? "partial" : "ok";
+      if(!termsAsked){ termsAsked = true; checkTerms(); }
     }catch(e){
       S.sync = e && e.status === 0 ? "offline" : "error";
       if(e && e.status === 401){ S.account = null; }
@@ -1483,6 +1486,19 @@ function syncNow(){
   return syncing;
 }
 
+// The terms the account accepted, asked of the service once a session, at the first
+// sync: changed, or never asked (an account made before them), the sheet to read and
+// accept them. Not over another sheet: then next time.
+let termsAsked = false;
+async function checkTerms(){
+  try{
+    const user = await whoAmI();
+    S.account = user;
+    if(user.terms === TERMS || document.querySelector("dialog[open]")) return;
+    openTerms({onAccept: async () => { S.account = await acceptTerms(); toast(t("termsThanks")); }});
+  }catch(e){}
+}
+
 // What the account's buttons on You lead to.
 async function accountActions(what){
   if(!S.account) return;
@@ -1490,7 +1506,7 @@ async function accountActions(what){
   if(what === "devices") again(await openDevices({toast, save: handOver, handle: S.account.handle}));
   else if(what === "chats") again(await openLinkedApps(toast));
   else if(what === "export") exportMyData();
-  else if(what === "signout"){ await signOut(); S.account = null; S.sync = ""; render(); toast(t("signedOut")); }
+  else if(what === "signout"){ await signOut(); S.account = null; S.sync = ""; termsAsked = false; render(); toast(t("signedOut")); }
   else if(what === "delete") removeAccount();
 }
 
