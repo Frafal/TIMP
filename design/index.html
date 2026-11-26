@@ -33,7 +33,7 @@
     <a href="#principles">Principles</a><a href="#brand">Brand</a><a href="#colour">Colour</a><a href="#type">Type</a>
     <a href="#space">Space, shape, motion</a><a href="#line">The line of the day</a>
     <a href="#stop">A stop</a><a href="#groups">Alternatives</a><a href="#day">The day</a>
-    <a href="#time">Time</a><a href="#today">On the day</a><a href="#map">The map</a><a href="#signals">Signals</a><a href="#search">Search</a><a href="#stopform">A stop's form</a><a href="#dayform">A day's form</a><a href="#sheets">Sheets</a><a href="#trips">Trips</a><a href="#group">The group</a>
+    <a href="#time">Time</a><a href="#today">On the day</a><a href="#map">The map</a><a href="#signals">Signals</a><a href="#search">Search</a><a href="#stopform">A stop's form</a><a href="#dayform">A day's form</a><a href="#sheets">Sheets</a><a href="#link">A phone by code</a><a href="#trips">Trips</a><a href="#group">The group</a>
     <a href="#a11y">Accessibility</a>
   </nav>
 
@@ -330,6 +330,30 @@
           <div class="found far"><input type="checkbox" aria-label="Mercado Exemplo"><button type="button" class="what" aria-expanded="false"><b>Mercado Exemplo</b><small>Mercado Exemplo, Porto</small><small class="dist">Market · 274 km from the other stops: probably another place</small></button></div>
         </div>
         <div class="sheet-actions"><button type="button" class="btn">Not now</button><button type="button" class="btn primary">Save 1 position</button></div>
+      </div></div>
+    </div></div>
+  </section>
+
+  <section id="link">
+    <h2>A phone by code</h2>
+    <p>A phone without a passkey of the account shows a code (LK1); a device signed in
+    approves it, after a warning and after seeing who asks, with its passkey (LK2).</p>
+    <div class="ds-row"><div class="ds-phone">
+      <div class="sheet ds-sheet"><div class="sheet-form">
+        <div class="sheet-head"><h2>Add this phone</h2><button type="button" class="iconbtn" aria-label="Close">×</button></div>
+        <ol class="steps"><li>On a phone where you are signed in to TIMP: You → Passkeys and devices → Approve another phone.</li><li>Type this code there.</li></ol>
+        <p class="lcode">K7PQ-4XMR</p>
+        <p class="foot">This phone: iPhone · Safari · the code works 9 more minutes.</p>
+        <p class="foot">Waiting for the approval…</p>
+      </div></div>
+    </div><div class="ds-phone">
+      <div class="sheet ds-sheet"><div class="sheet-form">
+        <div class="sheet-head"><h2>Approve a phone</h2><button type="button" class="iconbtn" aria-label="Close">×</button></div>
+        <div class="warns"><b>Only a code shown on one of your own phones.</b> TIMP never asks you for it: whoever's phone shows it gets into your account and sees all your trips.</div>
+        <div class="field"><label for="ds-approve">The code on the other phone</label><input id="ds-approve" type="text" value="K7PQ-4XMR"></div>
+        <div class="chat"><span class="who"><b>iPhone · Safari</b><small>asked at 17:40</small></span></div>
+        <p class="foot">Is it the phone in your hand? If not, close this.</p>
+        <div class="sheet-actions"><span class="grow"></span><button type="button" class="btn primary">Approve with my passkey</button></div>
       </div></div>
     </div></div>
   </section>

@@ -29,12 +29,12 @@ import { isChanges, applyChanges, outline, changesBrief } from "./changes.js";
 import { diffTrips, counts } from "./diff.js";
 import { describe, openHistory } from "./history.js";
 import { shortId, canonical, contentOf } from "./version.js";
-import { weatherOf, hasService, linkedApps, passkeys, whoAmI, acceptTerms, session as shareSession, signIn, signOut, serviceApi, deleteFromAccount, leaveTrip, chatRequestId, chatRequest, answerChat, onThisComputer, exportAccount, deleteAccount, lockOnAccount, inviteToken, acceptInvite, publicTrip, publicLink, pageUrl, tripHistory, tripMembers } from "./share.js";
+import { weatherOf, hasService, linkedApps, passkeys, removePasskey, whoAmI, acceptTerms, session as shareSession, signIn, signOut, serviceApi, deleteFromAccount, leaveTrip, chatRequestId, chatRequest, answerChat, onThisComputer, exportAccount, deleteAccount, lockOnAccount, inviteToken, acceptInvite, publicTrip, publicLink, pageUrl, tripHistory, tripMembers } from "./share.js";
 import { openShareSheet } from "./sharing.js";
 import { chooseFirstDay } from "./publishing.js";
 import { asBase } from "./publish.js";
 import { syncTrip, syncPrivate, syncGroup, withGroup, whereOf, pendingTicks } from "./sync.js";
-import { openSignUp, openLinkedApps, openDevices, openRecover, openTerms, legalUrl, accountError, recently } from "./account.js";
+import { openSignUp, openLinkedApps, openDevices, openRecover, openTerms, legalUrl, accountError, recently, openSignInHere, openLinkPhone, deviceName } from "./account.js";
 import { TERMS } from "./share-api.js";
 import { searchTrip } from "./search.js";
 import { PARTS, partOf, minutesOf, atTime } from "./parts.js";
@@ -1486,17 +1486,33 @@ function syncNow(){
   return syncing;
 }
 
-// The terms the account accepted, asked of the service once a session, at the first
-// sync: changed, or never asked (an account made before them), the sheet to read and
-// accept them. Not over another sheet: then next time.
+// The account as the service has it, asked once a session, at the first sync: the terms
+// it accepted (changed, or never asked: the sheet to read and accept them), then a phone
+// added to it with a code. Not over another sheet: then next time.
 let termsAsked = false;
 async function checkTerms(){
   try{
     const user = await whoAmI();
     S.account = user;
-    if(user.terms === TERMS || document.querySelector("dialog[open]")) return;
-    openTerms({onAccept: async () => { S.account = await acceptTerms(); toast(t("termsThanks")); }});
+    if(document.querySelector("dialog[open]")) return;
+    if(user.terms !== TERMS) return openTerms({onAccept: async () => { S.account = await acceptTerms(); toast(t("termsThanks")); }});
+    if(user.linked) await askLinked(user.linked);
   }catch(e){}
+}
+
+// A phone added to the account with a code (LK4): asked once on each of its other
+// devices; not on the phone added, nor on the one that approved it.
+const seenLink = linked => store.setKV("linkSeen", linked.at).catch(() => {});
+async function askLinked(linked){
+  if(await store.getKV("linkSeen").catch(() => null) === linked.at) return;
+  await seenLink(linked);
+  if(linked.by === navigator.userAgent.slice(0, 200)) return;
+  const when = new Intl.DateTimeFormat(getLang(), {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"}).format(new Date(linked.at));
+  const answer = await ask({title: t("linkedQ"), text: t("linkedText", {d: deviceName(linked.device) || t("deviceUnknown"), w: when, b: deviceName(linked.by) || t("deviceUnknown")}),
+    actions: [{id: "remove", label: t("linkedRemove"), kind: "danger"}, {id: "mine", label: t("linkedMine"), kind: "primary"}]});
+  if(answer !== "remove") return;
+  try{ if(await recently(() => removePasskey(linked.passkey))) toast(t("linkedRemoved")); }
+  catch(e){ toast(accountError(e)); }
 }
 
 // What the account's buttons on You lead to.
@@ -1548,22 +1564,32 @@ async function putBackOnAccount(id){
   toast(t(S.syncErrors.has(id) ? "syncPartial" : "putBack", {n: S.syncErrors.size}));
 }
 
+// Signed in on this phone, however: the account shown, said, and synced.
+function signedInAs(user, said){
+  S.account = user;
+  render();
+  toast(said);
+  syncNow();
+}
+
+// No passkey of the account on this phone (or the prompt closed): the other ways in (LK5).
 async function accountSignIn(){
   try{
     const user = await signIn();
-    if(!user) return;
-    S.account = user;
-    render();
-    toast(t("welcomeBack", {h: user.handle}));
-    syncNow();
+    if(user) return signedInAs(user, t("welcomeBack", {h: user.handle}));
+    openSignInHere({onLink: accountLink, onRetry: accountSignIn, onRecover: accountRecover});
   }catch(e){ toast(accountError(e)); }
+}
+
+// This phone added from one already signed in, with a code (LK1-LK3). Not asked about itself.
+function accountLink(){
+  openLinkPhone({onDone: user => { if(user.linked) seenLink(user.linked); signedInAs(user, t("linkedWelcome", {h: user.handle})); }});
 }
 
 // Every passkey lost: a recovery code and a new passkey on this phone. Resolves when the
 // form is closed, signed in or not.
 function accountRecover(){
-  return new Promise(done => openRecover({onClose: done,
-    onDone: user => { S.account = user; render(); toast(t("recoveredDone", {h: user.handle})); syncNow(); }}));
+  return new Promise(done => openRecover({onClose: done, onDone: user => signedInAs(user, t("recoveredDone", {h: user.handle}))}));
 }
 
 /* ---------- a published trip, from its page ---------- */
@@ -3024,7 +3050,7 @@ function runAct(act){
     act.hidden = true;
   }
   else if(a === "demo") loadDemo();
-  else if(a === "signup") openSignUp({onDone: user => { S.account = user; render(); toast(t("welcome", {h: user.handle})); syncNow(); }, onSignIn: accountSignIn, onRecover: accountRecover});
+  else if(a === "signup") openSignUp({onDone: user => signedInAs(user, t("welcome", {h: user.handle})), onSignIn: accountSignIn, onRecover: accountRecover});
   else if(a === "sync") syncNow();
   else if(a === "unhide"){ S.hidden.clear(); store.delKV("share:hidden").catch(() => {}); render(); syncNow(); }
   else if(a === "reup") putBackOnAccount(act.dataset.id);

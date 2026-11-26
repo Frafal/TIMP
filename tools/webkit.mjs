@@ -189,6 +189,31 @@ try{
     await run(`location.hash = "#day-2"; await new Promise(r => setTimeout(r, 300));`);
   });
 
+  await check("a phone by code: the code on one line, the sheets as wide as the screen at most, the code's field not zoomed by Safari (LK1-LK5)", async () => {
+    // Nothing wider than the screen, in the sheet or the page.
+    const fits = async name => {
+      const out = await run(`const d = [...document.querySelectorAll("dialog.sheet[open]")].pop(), r = d.getBoundingClientRect();
+        return {right: Math.round(r.right), inner: d.scrollWidth - d.clientWidth, page: document.documentElement.scrollWidth - innerWidth};`);
+      ok(out.right <= await run(`return innerWidth;`) + 1 && out.inner <= 1 && out.page <= 1, `${name}: ${JSON.stringify(out)}`);
+      await run(`[...document.querySelectorAll("dialog.sheet[open]")].pop().close(); await new Promise(r => setTimeout(r, 100));`);
+    };
+    await run(`const m = await import("./js/account.js"); m.openSignInHere({onLink(){}, onRetry(){}, onRecover(){}});`);
+    await fits("no passkey here");
+    // The service as it answers a new request: only for this sheet.
+    await run(`window.realFetch = fetch; window.fetch = (u, o) => String(u).endsWith("/v1/auth/link") ? Promise.resolve(new Response(JSON.stringify({id: "l1", code: "WMWM-WMWM", secret: "s", expires: new Date(Date.now() + 6e5).toISOString()}), {headers: {"Content-Type": "application/json"}})) : realFetch(u, o);
+      const m = await import("./js/account.js"); m.openLinkPhone({onDone(){}});`);
+    await until("the code", `document.querySelector("dialog.sheet[open] .lcode")`);
+    const code = await run(`const c = document.querySelector("dialog.sheet[open] .lcode"), r = document.createRange(); r.selectNodeContents(c);
+      return {over: c.scrollWidth - c.clientWidth, lines: new Set([...r.getClientRects()].map(x => Math.round(x.top))).size};`);
+    ok(code.over <= 1 && code.lines === 1, `the code: ${JSON.stringify(code)}`);
+    await run(`window.fetch = window.realFetch;`);
+    await fits("the code");
+    await run(`const m = await import("./js/account.js"); m.openApprove({toast(){}});`);
+    const size = await run(`return parseFloat(getComputedStyle(document.getElementById("approve-code")).fontSize);`);
+    ok(size >= 16, `the code's field is ${size}px: Safari zooms into less than 16`);
+    await fits("approve a phone");
+  });
+
   await check("search: a field Safari does not zoom into, results fixed under the bar", async () => {
     await run(`document.getElementById("search-btn").click(); await new Promise(r => setTimeout(r, 300));`);
     const size = await run(`return parseFloat(getComputedStyle(document.getElementById("search-q")).fontSize);`);

@@ -8,7 +8,7 @@ import { REPO_URL } from "./config.js";
 import { openSheet, row, rowValue } from "./sheet.js";
 import { ask } from "./ask.js";
 import { signUp, ShareError, linkedApps, unlinkApp, passkeys, openSessions, endOtherSessions, removePasskey, addPasskey, needsSignIn, signInAgain,
-  recoveryState, makeRecoveryCodes, recoverAccount, connectorAddress } from "./share.js";
+  recoveryState, makeRecoveryCodes, recoverAccount, connectorAddress, startLink, linkState, finishLink, lookLink, approveLink } from "./share.js";
 
 const FINGER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6.5 8.5a6.5 6.5 0 0111.6-2.4M18.9 9.2c.4 1.6.4 3.3.1 4.8M5.6 11.5v2.2c0 2.6 1 5 2.7 6.8"/><path d="M8.6 12v1.7a8.6 8.6 0 002.2 5.8M12 9.8a2.3 2.3 0 012.3 2.3v1.6c0 1.6.4 3.1 1.2 4.4"/><path d="M12 13v.8a11 11 0 001.7 5.9"/></svg>';
 
@@ -22,6 +22,7 @@ export function accountError(e){
   if(/^passkey: already on this device/.test(e.message)) return t("passkeyHere");
   if(/^passkey: another account/.test(e.message)) return t("passkeyOther");
   if(/^recovery:/.test(e.message)) return t("recoverBad");
+  if(/^link:/.test(e.message)) return t("linkEnded");
   if(e.status === 429 || e.status === 503) return t("accountBusy");
   return t("accountFailed");
 }
@@ -216,7 +217,8 @@ export async function openDevices({toast, save, handle}){
   const dlg = openSheet({id: "devices-title", title: t("devicesTitle"), cls: "devices tall", body: `<div class="srows">
     ${row("keys", t("passkeysTitle"), `<p class="foot">${esc(t("passkeysHelp"))}</p>
       <div class="chats" data-keys aria-busy="true"><p class="foot">…</p></div>
-      <button type="button" class="tbtn" data-add-key>${FINGER}${esc(t("addPasskey"))}</button>`)}
+      <button type="button" class="tbtn" data-add-key>${FINGER}${esc(t("addPasskey"))}</button>
+      <button type="button" class="tbtn" data-approve>${esc(t("approvePhone"))}</button>`)}
     ${row("codes", t("recoveryTitle"), `<p class="foot" data-recovery>…</p>
       <button type="button" class="tbtn" data-make-codes hidden></button>
       <div class="codes" data-codes hidden>
@@ -236,7 +238,7 @@ export async function openDevices({toast, save, handle}){
     for(const box of [$("[data-keys]"), $("[data-sessions]")]) box.removeAttribute("aria-busy");
     $("[data-keys]").innerHTML = keys.map((k, i) => `
       <div class="chat" data-key="${esc(k.id)}">
-        <span class="who"><b>${esc(deviceName(k.device) || t("passkeyN", {n: i + 1}))}</b><small>${esc(t("passkeyAdded", {d: when(k.added)}))}</small><small>${esc(k.lastUsed ? t("chatsUsed", {d: when(k.lastUsed)}) : t("passkeyUnused"))}</small></span>
+        <span class="who"><b>${esc(deviceName(k.device) || t("passkeyN", {n: i + 1}))}</b><small>${esc(t(k.byCode ? "passkeyByCode" : "passkeyAdded", {d: when(k.added)}))}</small><small>${esc(k.lastUsed ? t("chatsUsed", {d: when(k.lastUsed)}) : t("passkeyUnused"))}</small></span>
         ${keys.length > 1 ? `<button type="button" class="tbtn danger" data-remove-key="${esc(k.id)}">${esc(t("passkeyRemove"))}</button>` : ""}
       </div>`).join("") + (keys.length === 1 ? `<p class="foot">${esc(t("passkeyLast"))}</p>` : "");
     $("[data-sessions]").innerHTML = devices.map(d => `
@@ -267,6 +269,7 @@ export async function openDevices({toast, save, handle}){
     if(e.target.closest("[data-close]")) return;
     const add = e.target.closest("[data-add-key]"), off = e.target.closest("[data-remove-key]"), others = e.target.closest("[data-end-others]");
     const make = e.target.closest("[data-make-codes]"), copy = e.target.closest("[data-copy-codes]"), keep = e.target.closest("[data-save-codes]");
+    if(e.target.closest("[data-approve]")){ openApprove({toast, onDone: load}); return; }
     if(make){
       // New codes void the old ones: asked first when there are some.
       if(recovery && recovery.made && await ask({title: t("recoveryAgainQ"), text: t("recoveryAgainText"),
@@ -350,3 +353,115 @@ export function openRecover({onDone, onClose = () => {}}){
   });
   $("#rec-handle").focus();
 }
+
+/**
+ * Sign in found no passkey of the account on this phone, or the prompt was closed (LK5):
+ * this phone added from one already signed in first; the passkey again; a recovery code,
+ * which replaces every passkey, last.
+ */
+export function openSignInHere({onLink, onRetry, onRecover}){
+  const dlg = openSheet({id: "here-title", title: t("signInHereTitle"), body: `
+    <p class="foot">${esc(t("signInHereHelp"))}</p>
+    <button type="button" class="btn primary" data-pick="link">${esc(t("fromSignedIn"))}</button>
+    <p class="foot">${esc(t("fromSignedInHelp"))}</p>
+    <button type="button" class="tbtn" data-pick="retry">${esc(t("tryPasskeyAgain"))}</button>
+    <button type="button" class="tbtn" data-pick="recover">${esc(t("lostPasskey"))}</button>`});
+  dlg.addEventListener("click", e => {
+    const b = e.target.closest("[data-pick]");
+    if(!b) return;
+    dlg.close();
+    ({link: onLink, retry: onRetry, recover: onRecover})[b.dataset.pick]();
+  });
+  return dlg;
+}
+
+/**
+ * This phone joins the account from a device already signed in (LK1, LK3): a code shown
+ * here, typed and approved there; then this phone makes its passkey and is signed in.
+ * The request is followed only while the sheet is open; its secret never leaves it.
+ * onDone(user) once signed in.
+ */
+export function openLinkPhone({onDone}){
+  const dlg = openSheet({id: "link-title", title: t("linkTitle"), body: `<div data-link aria-live="polite"><p class="foot">…</p></div>`});
+  const box = dlg.querySelector("[data-link]");
+  let req = null, timer = 0;
+  const stop = () => clearTimeout(timer);
+  dlg.addEventListener("close", stop);
+  const show = html => { box.innerHTML = html; };
+  const failed = e => show(`<p class="errbox" role="alert">${esc(accountError(e))}</p><button type="button" class="btn primary" data-again>${esc(t("linkAgain"))}</button>`);
+  const start = async () => {
+    stop();
+    try{ req = await startLink(); }catch(e){ return failed(e); }
+    show(`<ol class="steps"><li>${esc(t("linkStep1"))}</li><li>${esc(t("linkStep2"))}</li></ol>
+      <p class="lcode" aria-label="${esc(t("linkCodeLabel"))}">${esc(req.code)}</p>
+      <p class="foot">${esc(t("linkThisPhone", {d: deviceName(navigator.userAgent) || t("deviceUnknown"), n: Math.max(1, Math.round((Date.parse(req.expires) - Date.now()) / 60e3))}))}</p>
+      <p class="foot">${esc(t("linkWaiting"))}</p>`);
+    follow();
+  };
+  // Every few seconds while it waits; approved, one tap makes the passkey (iPhones want a tap for it).
+  const follow = () => { timer = setTimeout(async () => {
+    if(!dlg.open) return;
+    let now;
+    try{ now = await linkState(req.id, req.secret); }
+    catch(e){ return e instanceof ShareError && e.status === 0 ? follow() : failed(e); }
+    if(now.state !== "approved") return follow();
+    show(`<div class="passkey">${FINGER}<span>${esc(t("linkApproved", {h: now.handle, d: deviceName(now.by) || t("deviceUnknown")}))}</span></div>
+      <div class="sheet-actions"><span class="grow"></span><button type="button" class="btn primary" data-make>${esc(t("createPasskey"))}</button></div>`);
+    dlg.querySelector("[data-make]").addEventListener("click", async e => {
+      e.target.disabled = true;
+      try{
+        const user = await finishLink(req.id, req.secret, now);
+        if(user){ dlg.close(); onDone(user); }
+      }catch(err){ failed(err); }
+      finally{ e.target.disabled = false; }
+    });
+  }, 4000); };
+  dlg.addEventListener("click", e => { if(e.target.closest("[data-again]")) start(); });
+  start();
+  return dlg;
+}
+
+/**
+ * On a device signed in: another phone may join this account (LK2). The warning first,
+ * the code typed, who asks as that phone said it, then the passkey asked again to
+ * approve. onDone() once approved.
+ */
+export function openApprove({toast, onDone = () => {}}){
+  const dlg = openSheet({id: "approve-title", title: t("approveTitle"), form: true, body: `
+    <div class="warns"><b>${esc(t("approveWarnHead"))}</b> ${esc(t("approveWarn"))}</div>
+    <div class="field">
+      <label for="approve-code">${esc(t("approveCode"))}</label>
+      <input id="approve-code" type="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="ABCD-EFGH">
+    </div>
+    <div data-asker></div>
+    <p class="errbox" data-error role="alert" hidden></p>
+    <div class="sheet-actions"><span class="grow"></span><button type="submit" class="btn primary" disabled>${esc(t("approveGo"))}</button></div>`});
+  const $ = sel => dlg.querySelector(sel), go = $("[type=submit]");
+  const fail = text => { $("[data-error]").textContent = text; $("[data-error]").hidden = !text; };
+  // Who asks, as soon as the code is whole: approving is possible only after seeing it.
+  let asked = "";
+  $("#approve-code").addEventListener("input", async e => {
+    const code = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    go.disabled = true; $("[data-asker]").innerHTML = ""; fail("");
+    if(code.length !== 8 || code === asked) return;
+    asked = code;
+    try{
+      const who = await lookLink(code);
+      if(asked !== code) return;
+      $("[data-asker]").innerHTML = `<div class="chat"><span class="who"><b>${esc(deviceName(who.device) || t("deviceUnknown"))}</b><small>${esc(t("approveAsked", {d: new Intl.DateTimeFormat(getLang(), {hour: "2-digit", minute: "2-digit"}).format(new Date(who.asked))}))}</small></span></div>
+        <p class="foot">${esc(t("approveInHand"))}</p>`;
+      go.disabled = false;
+    }catch(err){ asked = ""; fail(accountError(err)); }
+  });
+  $("form").addEventListener("submit", async e => {
+    e.preventDefault();
+    go.disabled = true;
+    try{
+      if(await recently(() => approveLink(asked))){ dlg.close(); toast(t("approveDone")); onDone(); }
+    }catch(err){ fail(accountError(err)); }
+    finally{ go.disabled = !asked; }
+  });
+  $("#approve-code").focus();
+  return dlg;
+}
+

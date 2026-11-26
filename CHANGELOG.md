@@ -4,6 +4,16 @@ Versions follow [Semantic Versioning](https://semver.org/). The trip file format
 its own version: `travel-in-my-pocket/2` since 3.0. Files in `travel-in-my-pocket/1`
 (1.0 to 2.4) still load: the app converts them.
 
+## Unreleased
+
+- **A phone by code**: on a phone without a passkey of your account, Sign in offers "From a
+  phone where I'm signed in": a code appears, you approve it on a phone already signed in
+  (You → Passkeys and devices → Approve another phone), which shows which phone asks and
+  asks for your passkey; then this phone makes its own passkey with one tap. Your other
+  phones ask once "A phone joined your account", with Remove it. A code works 10 minutes,
+  once. Needs the service with the routes of a phone by code.
+- The passkey prompts are one function in `js/share.js` (they were six).
+
 ## 4.16.2
 
 - The same as 4.16.1, which was never published: its deploy looked for the app's files

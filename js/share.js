@@ -100,6 +100,22 @@ export function credentialJSON(c){
 // The person closed the passkey prompt, or the phone refused: not an error to report.
 const cancelled = e => e && (e.name === "NotAllowedError" || e.name === "AbortError");
 
+/**
+ * The passkey prompt for options from the service: a passkey made on this phone
+ * ("create") or one of its own used ("get"), as JSON for the service; null if the person
+ * closed it. A phone that has a passkey of the account already says so (409).
+ */
+async function passkeyPrompt(kind, publicKey){
+  try{
+    return credentialJSON(kind === "create" ? await navigator.credentials.create({publicKey: creationOptions(publicKey)})
+      : await navigator.credentials.get({publicKey: requestOptions(publicKey)}));
+  }catch(e){
+    if(cancelled(e)) return null;
+    if(e && e.name === "InvalidStateError") throw new ShareError(409, "passkey: already on this device");
+    throw e;
+  }
+}
+
 async function keep(s){
   await setKV(SESSION, {token: s.token, user: s.user});
   return s.user;
@@ -121,19 +137,15 @@ export const acceptTerms = async () => keepUser(await call("acceptTerms", {body:
 /** A new account: a sign-up code, a handle, the terms accepted, a passkey. The user, or null if the person cancelled. */
 export async function signUp(code, handle){
   const opt = await call("registerOptions", {body: {code, handle, terms: TERMS}});
-  let cred;
-  try{ cred = await navigator.credentials.create({publicKey: creationOptions(opt.publicKey)}); }
-  catch(e){ if(cancelled(e)) return null; throw e; }
-  return keep(await call("register", {body: {challengeId: opt.challengeId, credential: credentialJSON(cred)}}));
+  const credential = await passkeyPrompt("create", opt.publicKey);
+  return credential && keep(await call("register", {body: {challengeId: opt.challengeId, credential}}));
 }
 
 /** Signing in with a passkey of this app. The user, or null if the person cancelled. */
 export async function signIn(){
   const opt = await call("loginOptions", {body: {}});
-  let cred;
-  try{ cred = await navigator.credentials.get({publicKey: requestOptions(opt.publicKey)}); }
-  catch(e){ if(cancelled(e)) return null; throw e; }
-  return keep(await call("login", {body: {challengeId: opt.challengeId, credential: credentialJSON(cred)}}));
+  const credential = await passkeyPrompt("get", opt.publicKey);
+  return credential && keep(await call("login", {body: {challengeId: opt.challengeId, credential}}));
 }
 
 /** Signing out: the session ends on the service (if it can be reached) and here. */
@@ -222,10 +234,9 @@ export const exportAccount = () => call("exportAccount");
  */
 export async function deleteAccount(handle){
   const opt = await call("loginOptions", {body: {}});
-  let cred;
-  try{ cred = await navigator.credentials.get({publicKey: requestOptions(opt.publicKey)}); }
-  catch(e){ if(cancelled(e)) return null; throw e; }
-  await call("deleteAccount", {body: {handle, challengeId: opt.challengeId, credential: credentialJSON(cred)}});
+  const credential = await passkeyPrompt("get", opt.publicKey);
+  if(!credential) return null;
+  await call("deleteAccount", {body: {handle, challengeId: opt.challengeId, credential}});
   await delKV(SESSION).catch(() => {});
   return true;
 }
@@ -251,14 +262,9 @@ export const removePasskey = id => call("removePasskey", {params: {id}});
  */
 export async function addPasskey(){
   const opt = await call("addPasskeyOptions", {body: {}});
-  let cred;
-  try{ cred = await navigator.credentials.create({publicKey: creationOptions(opt.publicKey)}); }
-  catch(e){
-    if(cancelled(e)) return null;
-    if(e && e.name === "InvalidStateError") throw new ShareError(409, "passkey: already on this device");
-    throw e;
-  }
-  await call("addPasskey", {body: {challengeId: opt.challengeId, credential: credentialJSON(cred)}});
+  const credential = await passkeyPrompt("create", opt.publicKey);
+  if(!credential) return null;
+  await call("addPasskey", {body: {challengeId: opt.challengeId, credential}});
   return true;
 }
 
@@ -275,11 +281,29 @@ export const makeRecoveryCodes = async () => (await call("makeRecovery", {body: 
  */
 export async function recoverAccount(handle, code){
   const opt = await call("recoverOptions", {body: {handle, code}});
-  let cred;
-  try{ cred = await navigator.credentials.create({publicKey: creationOptions(opt.publicKey)}); }
-  catch(e){ if(cancelled(e)) return null; throw e; }
-  return keep(await call("recover", {body: {challengeId: opt.challengeId, credential: credentialJSON(cred)}}));
+  const credential = await passkeyPrompt("create", opt.publicKey);
+  return credential && keep(await call("recover", {body: {challengeId: opt.challengeId, credential}}));
 }
+
+/* ---------- a phone by code (the service's src/core/links.ts) ---------- */
+
+/** This phone asks to join an account: {id, code, secret, expires}. The code is shown; the secret never leaves this page. */
+export const startLink = () => call("linkStart", {body: {}});
+
+/** The request now: {state: "waiting"}, or approved with the account's handle, who approved and what the passkey signs. 410 once ended. */
+export const linkState = (id, secret) => call("linkState", {params: {id}, body: {secret}});
+
+/** Approved: the passkey made on this phone, and signed in. The user, or null if the person closed the prompt. */
+export async function finishLink(id, secret, approved){
+  const credential = await passkeyPrompt("create", approved.publicKey);
+  return credential && keep(await call("linkFinish", {params: {id}, body: {secret, challengeId: approved.challengeId, credential}}));
+}
+
+/** On a device signed in: who asks with a code typed here, {device, asked}; 404 for any code not waiting. */
+export const lookLink = code => call("lookLink", {body: {code}});
+
+/** That phone may join this account. Needs a recent sign-in. */
+export const approveLink = code => call("approveLink", {body: {code}});
 
 /** The service wants a sign-in of the last minutes for this (a passkey added or taken off). */
 export const needsSignIn = e => e instanceof ShareError && e.status === 403 && /^sign in again/.test(e.message);
@@ -293,10 +317,9 @@ export async function signInAgain(){
   const old = await session();
   if(!old) throw new ShareError(401, "sign in first");
   const opt = await call("loginOptions", {body: {}});
-  let cred;
-  try{ cred = await navigator.credentials.get({publicKey: requestOptions(opt.publicKey)}); }
-  catch(e){ if(cancelled(e)) return null; throw e; }
-  const s = await call("login", {body: {challengeId: opt.challengeId, credential: credentialJSON(cred)}});
+  const credential = await passkeyPrompt("get", opt.publicKey);
+  if(!credential) return null;
+  const s = await call("login", {body: {challengeId: opt.challengeId, credential}});
   if(s.user.id !== old.user.id){
     await call("logout", {token: s.token}).catch(() => {});
     throw new ShareError(403, "passkey: another account's");
