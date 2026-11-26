@@ -4,19 +4,19 @@ Versions follow [Semantic Versioning](https://semver.org/). The trip file format
 its own version: `travel-in-my-pocket/2` since 3.0. Files in `travel-in-my-pocket/1`
 (1.0 to 2.4) still load: the app converts them.
 
-## Unreleased
+## 4.16.0
 
-- **TIMP dev**, a second app to try changes on before they reach everyone: every push to
-  `main` is published there, with its own name, an icon with an ink DEV band and its own
-  sharing service; the real app is published only from a release tag. `tools/build.mjs`
-  takes `--name` and `--icons`.
 - **The icon's teal is deeper**, a bottle green close to the app's ink, so it sits with the
   black buttons; the logo is centred in the icon, as much ground above as below.
-- **The app opens again from its offline copy on hosts that answer `index.html` with a
-  redirect** (Cloudflare's static files, so TIMP dev): Chrome refused the copy and showed
-  an error page from the second opening on. The copy now keeps only the content.
-- The "Your AI" sheet showed the wrong help line under the chats (a text written twice in
-  the strings); a test now refuses a text written twice.
+- **The "Your AI" sheet shows its own help line** under the chats again (a text written
+  twice in the strings hid it); a test now refuses a text written twice.
+- **The offline copy is never a redirect**: on hosts that answer `index.html` with a
+  redirect (Cloudflare's static files) Chrome refused it, and the app did not open a second
+  time. GitHub Pages was not touched; now any host works.
+- **TIMP dev**, a second app to try changes on before they reach everyone: work goes on
+  `develop`, every push there is published as TIMP dev (its own name, an icon with an ink
+  DEV band, its own sharing service); `main` gets releases by a pull request, and only a
+  tag on `main` publishes the real app. `tools/build.mjs` takes `--name` and `--icons`.
 
 ## 4.15.0
 
