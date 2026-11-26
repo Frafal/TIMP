@@ -105,11 +105,13 @@ The logo is the app's icon (`icons/icon.svg`, its source; the PNGs are made from
 - **BR1** A stitched pocket with the trip's things in it (a map, a boarding pass, a
   passport): what the trip keeps, its history, and what is travelled together, sharing.
   "timp" in Inter Bold, drawn as paths, very readable; the pin over its i in the accent.
-- **BR2** Its colours are tokens (`brand`): the teal ground, the deeper pocket, the cream of
-  the word and the stitching; the same in both themes. Inside the app the days and places
-  keep their own colours.
-- **BR3** Full bleed, never a frame: iOS and Android round it. The maskable icon keeps the
-  pocket inside Android's safe circle; TIMP dev adds an ink DEV band (`tools/dev-icons`,
+- **BR2** Its colours are tokens (`brand`): a deep bottle teal for the ground, close to the
+  app's ink so the icon sits with its black buttons, the deeper pocket, the cream of the
+  word and the stitching; the same in both themes. Inside the app the days and places keep
+  their own colours.
+- **BR3** Full bleed, never a frame: iOS and Android round it. The logo centred, the same
+  ground above and below (and on both sides); the maskable icon keeps the pocket inside
+  Android's safe circle; TIMP dev adds an ink DEV band (`tools/dev-icons`,
   made the same way).
 - PNGs: `rsvg-convert -w 512 icons/icon.svg -o icons/icon-512.png` (192, 180 for
   `apple-touch-icon.png`), and `icons/icon-maskable.svg` for `icon-maskable-512.png`.

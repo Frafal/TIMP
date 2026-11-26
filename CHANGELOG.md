@@ -10,6 +10,8 @@ its own version: `travel-in-my-pocket/2` since 3.0. Files in `travel-in-my-pocke
   `main` is published there, with its own name, an icon with an ink DEV band and its own
   sharing service; the real app is published only from a release tag. `tools/build.mjs`
   takes `--name` and `--icons`.
+- **The icon's teal is deeper**, a bottle green close to the app's ink, so it sits with the
+  black buttons; the logo is centred in the icon, as much ground above as below.
 - The "Your AI" sheet showed the wrong help line under the chats (a text written twice in
   the strings); a test now refuses a text written twice.
 
