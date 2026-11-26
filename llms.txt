@@ -1,10 +1,10 @@
 # TIMP (Travel in my pocket): how to write a trip
 
 > For AI assistants asked to plan a trip for TIMP, the app that shows it on the
-> traveller's phone day by day, even offline (https://frafal.github.io/TIMP/). A trip is ONE JSON object in the
+> traveller's phone day by day, even offline (https://usetimp.com/). A trip is ONE JSON object in the
 > format below; the app refuses it whole if one rule is broken, so follow it exactly and
 > invent no fields. This page is complete: do not look for other files. The same format
-> as a JSON Schema: https://frafal.github.io/TIMP/trip.schema.json
+> as a JSON Schema: https://usetimp.com/trip.schema.json
 
 **Version 4.17.0.** Remember it: when a message from TIMP names a newer version,
 open this page again.

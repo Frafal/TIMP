@@ -5,7 +5,7 @@ changing a trip on the way, versions and files.
 
 ## Installing
 
-1. Open <https://frafal.github.io/TIMP/>.
+1. Open <https://usetimp.com>.
 2. Install it on the Home Screen:
    - **iPhone**: open the page in Safari (or Chrome), tap Share, then "Add to Home Screen".
    - **Android**: open the browser menu, tap "Install app" or "Add to Home screen".

@@ -1,5 +1,5 @@
 // llms.txt: everything an AI assistant needs to write a trip, in one plain text page
-// published with the app (https://frafal.github.io/TIMP/llms.txt). Without an account it
+// published with the app (https://usetimp.com/llms.txt). Without an account it
 // is how a chat (Claude, ChatGPT, Gemini…) plans a trip for TIMP: it must work at the
 // first read.
 //
@@ -53,7 +53,7 @@ function forOnePage(md){
     .replace(/\n{3,}/g, "\n\n");
 }
 
-export function llmsText({root = ROOT, site = "https://frafal.github.io/TIMP/", resolver = ""} = {}){
+export function llmsText({root = ROOT, site = "https://usetimp.com/", resolver = ""} = {}){
   const version = JSON.parse(read(root, "package.json")).version;
   const guide = forOnePage(read(root, "docs/creating-a-trip.md"));
   // The guide's steps first, then the format, then its advice; the format of changes goes

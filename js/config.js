@@ -12,3 +12,7 @@ export const RESOLVER_URL = "";
 // Address of the sharing service (accounts, sync, sharing; its API is js/share-api.js).
 // Empty: no account section, the app works as it always has, on the phone alone.
 export const SHARE_URL = "";
+
+// Where the app moved to, in the copy left at its old address: that copy says so and
+// helps to move (an account's phone approved there, trips saved as files). Empty: none.
+export const MOVED_TO = "";

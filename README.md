@@ -9,7 +9,7 @@ Tell Claude, ChatGPT or Gemini where and when: it plans the trip. TIMP shows it 
 phone day by day, with maps and costs, even offline, and your AI changes it while you
 travel.
 
-**Open the app: <https://frafal.github.io/TIMP/>**
+**Open the app: <https://usetimp.com>**
 
 <p align="center">
   <img src="docs/screenshots/welcome.png" width="24%" alt="The first screen: your AI is your travel agent; Plan it with your AI, Create account and Sign in, and the steps to keep TIMP on an iPhone's Home Screen">
@@ -84,7 +84,7 @@ stops it at once.
 
 How to write a good one: [docs/creating-a-trip.md](docs/creating-a-trip.md). Every field:
 [docs/trip-format.md](docs/trip-format.md), also as a
-[JSON Schema](https://frafal.github.io/TIMP/trip.schema.json). Never commit a real trip:
+[JSON Schema](https://usetimp.com/trip.schema.json). Never commit a real trip:
 it has your hotels and your dates.
 
 ## Privacy

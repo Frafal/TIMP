@@ -18,7 +18,7 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
 // share: the address of a sharing service, put in js/config.js and in the page's
 // Content-Security-Policy the way tools/build.mjs does it; "self" for `api`, a fake of
 // the service answering /v1/ on this very server: (method, path, body) → {status, body}.
-export function serve({share, api} = {}){
+export function serve({share, api, moved = ""} = {}){
   const server = createServer(async (req, res) => {
     if(api && req.url.startsWith("/v1/")){
       let raw = "";
@@ -36,6 +36,8 @@ export function serve({share, api} = {}){
     try{
       let data = await readFile(file);
       if(address && path === "js/config.js") data = Buffer.from(data.toString("utf8").replace('export const SHARE_URL = "";', `export const SHARE_URL = ${JSON.stringify(address)};`));
+      // The copy left at an old address (tools/build.mjs --moved-to).
+      if(moved && path === "js/config.js") data = Buffer.from(data.toString("utf8").replace('export const MOVED_TO = "";', `export const MOVED_TO = ${JSON.stringify(moved)};`));
       if(share && file.endsWith("index.html")) data = Buffer.from(data.toString("utf8").replace("connect-src 'self'", `connect-src 'self' ${share}`));
       res.writeHead(200, {"content-type": TYPES[extname(file)] || "application/octet-stream"}).end(data);
     }catch(e){
@@ -114,8 +116,8 @@ async function connect(wsUrl){
  * Options: {share, api} a sharing service for the app (see serve); {host} the host the
  *   page is opened on ("localhost" for passkeys: they refuse an IP address).
  */
-export async function withApp(work, {share = "", api = null, host = "127.0.0.1"} = {}){
-  const server = await serve({share, api});
+export async function withApp(work, {share = "", api = null, host = "127.0.0.1", moved = ""} = {}){
+  const server = await serve({share, api, moved});
   const base = `http://${host}:${server.address().port}/`;
   const profile = await mkdtemp(join(tmpdir(), "timp-browser-"));
   // One more try when Chrome does not start: on a shared runner it sometimes stalls.

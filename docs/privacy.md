@@ -24,7 +24,8 @@ trips are encrypted where they are kept, in the European Union.
   the month of an exchange rate from Frankfurter, never an amount or a place.
 - The weather is asked of TIMP's service with a place rounded to about 10 km; the service
   asks MET Norway with at most a kilometre of precision and keeps nothing about who asked.
-- The app's files are hosted by GitHub Pages, which sees your IP address when they load.
+- The app's files are served by Cloudflare at usetimp.com, which sees your IP address when
+  they load (until 26 December 2026 also by GitHub Pages, at the app's old address).
 - A trip file you save goes only where you send it; private expenses go in it only if you
   say so.
 
@@ -37,6 +38,7 @@ trips are encrypted where they are kept, in the European Union.
 | Your trips, their versions and your private expenses, encrypted | Your trips on every phone, shared with whom you choose | Contract | Until you delete them or the account |
 | Who a trip is shared with, invitations, what you show the group | Sharing | Contract | Invitations 14 days; the rest until removed |
 | A trip you publish | The page you chose to publish | Contract | Until you withdraw it |
+| A phone added with a code: the names the asking and the approving browsers give themselves, the code and a secret as hashes | Adding a phone to your account, and telling your other phones | Contract | 10 minutes while it waits; once used, 14 days |
 | The chats you link (which app, what it may do, when it was used) and their keys, as hashes | Letting your AI work on your trips | Contract | Until you unlink it; keys 1 hour, renewable for 60 days |
 | The invitation you signed up with | Accounts are by invitation | Legitimate interest (art. 6.1.f) | Until you delete the account |
 | A security log: sign-ins, sign-outs, chats linked, trips deleted… by an internal number, never trip content, addresses or IPs | Security, preventing abuse | Legitimate interest | 180 days |
@@ -51,7 +53,8 @@ their trip after you leave, no longer linked to you.
 - **Cloudflare** runs the service and its database. The database is in the European Union
   and stays there; Cloudflare's network may carry requests outside it, under its data
   processing agreement and the EU's standard contractual clauses.
-- **GitHub** hosts the app's files. **MET Norway** gets a rounded place for the weather.
+- **Cloudflare** also serves the app's files; **GitHub** served them at the old address
+  until 26 December 2026. **MET Norway** gets a rounded place for the weather.
   The map, search and exchange-rate services are asked by your phone, as above.
 - **Your AI chat**: when you link Claude, ChatGPT or another chat, what it reads of your
   trips goes to that company, under its own terms. You choose which, and unlink it in

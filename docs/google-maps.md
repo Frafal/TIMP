@@ -12,7 +12,7 @@ trip file and everyone who receives the file gets the Google map without doing a
 4. In "APIs & Services → Credentials", create an **API key**.
 5. Restrict the key. This is what makes it safe to share:
    - Application restriction: **Websites**, with the address of the app, for example
-     `https://frafal.github.io/TIMP/*` (or the address of your own copy)
+     `https://usetimp.com/*` (or the address of your own copy)
    - API restriction: **Maps JavaScript API**, plus **Geocoding API** if you enabled it.
 6. Set a daily limit in "Google Maps Platform → Quotas → Maps JavaScript API": find
    "Map loads per day", untick "Unlimited" and enter 300 or less. At 300 a day the

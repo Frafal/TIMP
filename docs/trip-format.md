@@ -13,7 +13,7 @@ out by the app from the content. How to write a *good* trip is in
 - Check a file: `node tools/validate-trip.mjs --map my-trip.json`
 - The same rules as a JSON Schema, for tools and AI assistants that can follow one:
   `trip.schema.json`, published next to the app (for example
-  https://frafal.github.io/TIMP/trip.schema.json).
+  https://usetimp.com/trip.schema.json).
 
 The checker, the schema and the app are all made from one table in
 [`js/trip.js`](../js/trip.js) (`FIELDS`): what passes the checker loads in the app.
