@@ -4,6 +4,12 @@ Versions follow [Semantic Versioning](https://semver.org/). The trip file format
 its own version: `travel-in-my-pocket/2` since 3.0. Files in `travel-in-my-pocket/1`
 (1.0 to 2.4) still load: the app converts them.
 
+## 4.16.2
+
+- The same as 4.16.1, which was never published: its deploy looked for the app's files
+  before GitHub listed them. Uploading and publishing are two jobs again, as in GitHub's
+  own workflow.
+
 ## 4.16.1
 
 - **The sharing service has a new address**, `https://api.usetimp.com`: the app calls it
