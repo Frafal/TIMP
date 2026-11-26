@@ -4,7 +4,7 @@ Versions follow [Semantic Versioning](https://semver.org/). The trip file format
 its own version: `travel-in-my-pocket/2` since 3.0. Files in `travel-in-my-pocket/1`
 (1.0 to 2.4) still load: the app converts them.
 
-## Unreleased
+## 4.17.0
 
 - **A phone by code**: on a phone without a passkey of your account, Sign in offers "From a
   phone where I'm signed in": a code appears, you approve it on a phone already signed in
