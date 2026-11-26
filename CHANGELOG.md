@@ -4,6 +4,12 @@ Versions follow [Semantic Versioning](https://semver.org/). The trip file format
 its own version: `travel-in-my-pocket/2` since 3.0. Files in `travel-in-my-pocket/1`
 (1.0 to 2.4) still load: the app converts them.
 
+## 4.16.1
+
+- **The sharing service has a new address**, `https://api.usetimp.com`: the app calls it
+  directly (the old one forwards there, so nothing changed for anyone meanwhile).
+- Wrangler's local cache is no longer kept in the repository, and is ignored.
+
 ## 4.16.0
 
 - **The icon's teal is deeper**, a bottle green close to the app's ink, so it sits with the
