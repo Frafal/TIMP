@@ -4,6 +4,15 @@ Versions follow [Semantic Versioning](https://semver.org/). The trip file format
 its own version: `travel-in-my-pocket/2` since 3.0. Files in `travel-in-my-pocket/1`
 (1.0 to 2.4) still load: the app converts them.
 
+## 4.15.0
+
+- **A new logo, which is the app's icon**: a stitched pocket with the trip's things in it (a
+  map, a boarding pass, a passport), "timp" in Inter, the pin over its i. It fills the whole
+  icon: no more black frame around a card on the phone. Readable on a Home Screen; Android's
+  round masks keep the pocket inside.
+- **The brand's colours are tokens** of the design system (teal, the pocket, cream), with a
+  Brand section in it; the welcome screen shows the logo.
+
 ## 4.14.0
 
 - **Terms of use and privacy policy** for the service, in English and Italian

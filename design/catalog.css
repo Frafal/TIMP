@@ -57,3 +57,5 @@ body.ds{margin:0;background:var(--bg);color:var(--ink);font:400 var(--fs-base)/1
 .ds-parts .when{margin:0}
 .ds-gapdemo{display:grid;gap:var(--gap-related);margin-top:var(--gap-group)}
 .ds-gapdemo .foot{margin:0}
+.ds-brand{display:flex;align-items:flex-end;gap:var(--sp-5);margin:var(--sp-4) 0}
+.ds-brand img{border-radius:22.5%;box-shadow:0 1px 3px rgba(0,0,0,.15)}

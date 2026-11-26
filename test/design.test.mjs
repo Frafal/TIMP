@@ -77,3 +77,12 @@ test("the styles use tokens, and fewer values of their own than before (R10)", (
   };
   for(const k of Object.keys(LEFT)) assert.ok(count[k] <= LEFT[k], `css/app.css: ${count[k]} ${k} values of its own, at most ${LEFT[k]}: use the tokens`);
 });
+
+test("the logo is drawn in the brand's tokens (BR2), as paths: no font needed to show it", () => {
+  const tokens = JSON.parse(readFileSync(join(ROOT, "design/tokens.json"), "utf8"));
+  for(const f of ["icons/icon.svg", "icons/icon-maskable.svg"]){
+    const svg = readFileSync(join(ROOT, f), "utf8");
+    for(const k of ["teal", "pocket", "cream"]) assert.ok(svg.includes(tokens.brand[k].$value), `${f}: brand-${k}`);
+    assert.ok(!/<text\b/.test(svg), `${f}: the word as paths`);
+  }
+});

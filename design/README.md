@@ -98,6 +98,21 @@ within a group (buttons in a row, a label and its field, a text and its action);
 can be told apart touches. `test/design.test.mjs` counts the spacings written by hand:
 they may only go down (198 on 25 November).
 
+## Brand
+
+The logo is the app's icon (`icons/icon.svg`, its source; the PNGs are made from it).
+
+- **BR1** A stitched pocket with the trip's things in it (a map, a boarding pass, a
+  passport): what the trip keeps, its history, and what is travelled together, sharing.
+  "timp" in Inter Bold, drawn as paths, very readable; the pin over its i in the accent.
+- **BR2** Its colours are tokens (`brand`): the teal ground, the deeper pocket, the cream of
+  the word and the stitching; the same in both themes. Inside the app the days and places
+  keep their own colours.
+- **BR3** Full bleed, never a frame: iOS and Android round it. The maskable icon keeps the
+  pocket inside Android's safe circle; TIMP dev adds an ink DEV band.
+- PNGs: `rsvg-convert -w 512 icons/icon.svg -o icons/icon-512.png` (192, 180 for
+  `apple-touch-icon.png`), and `icons/icon-maskable.svg` for `icon-maskable-512.png`.
+
 ## The line of the day
 
 Every city is a line, every stop a station, as on a metro map. The line takes the

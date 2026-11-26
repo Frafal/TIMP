@@ -1310,7 +1310,7 @@ function homePicker(){
 // sight; the rest in a quiet row; the Home Screen's steps only when not installed.
 function renderWelcome(){
   return `<section class="welcome">
-    <div class="brand"><img src="icons/icon.svg" width="44" height="44" alt=""><div><b>TIMP</b><small>Travel in my pocket</small></div></div>
+    <div class="brand"><img src="icons/icon.svg" width="64" height="64" alt="TIMP"><small>Travel in my pocket</small></div>
     <div class="say"><h1>${esc(t("welcomeHead"))}</h1><p>${esc(t("welcomeLine"))}</p></div>
     ${errorBox()}
     <button type="button" class="btn primary big" data-act="assistant">${esc(t("planWithAi"))}</button>

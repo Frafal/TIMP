@@ -426,8 +426,7 @@ button.crow{cursor:pointer}
    action; the account as two buttons; the rest in a quiet row; the Home Screen's steps */
 .welcome{display:grid;gap:var(--gap-group);padding-top:var(--sp-5)}
 .welcome .brand{display:flex;align-items:center;gap:var(--sp-4)}
-.welcome .brand img{width:44px;height:44px;border-radius:22.5%}
-.welcome .brand b{font:700 var(--fs-xl) var(--f-display)}
+.welcome .brand img{width:64px;height:64px;border-radius:22.5%}
 .welcome .brand small{display:block;font:500 var(--fs-xs) var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .welcome .say{display:grid;gap:var(--gap-tight)}
 .welcome .say h1{margin:0;font:700 var(--fs-xxl)/1.2 var(--f-display);white-space:nowrap;overflow:hidden}
