@@ -1,24 +1,24 @@
 name: Deploy
 
-# Publishes the app to GitHub Pages.
-# One-time setup in the repository: Settings → Pages → Source: "GitHub Actions".
+# Two copies of the app, checked the same way:
+# - every push to main: the copy to try changes on ("TIMP dev", its own name, icons and
+#   sharing service), a Cloudflare Worker of static files named timp-dev. Only when the
+#   repository variable DEV_SHARE_URL (its service) and the secrets CLOUDFLARE_API_TOKEN
+#   (Workers Scripts, edit) and CLOUDFLARE_ACCOUNT_ID are set: a fork without them skips it.
+# - a release, a tag vX.Y.Z: the real one, on GitHub Pages. One-time setup: Settings →
+#   Pages → Source: "GitHub Actions"; Environments → github-pages: allow the tags "v*".
 
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -31,6 +31,52 @@ jobs:
         env:
           CHROME: google-chrome
         run: npm run e2e
+
+  dev:
+    needs: test
+    if: github.ref == 'refs/heads/main' && vars.DEV_SHARE_URL != ''
+    runs-on: ubuntu-latest
+    environment: dev
+    concurrency:
+      group: dev
+      cancel-in-progress: true
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Build, as TIMP dev
+        run: node tools/build.mjs --out _dev --name "TIMP dev" --icons tools/dev-icons --repo "${{ github.server_url }}/${{ github.repository }}" --resolver "${{ vars.RESOLVER_URL }}" --share "${{ vars.DEV_SHARE_URL }}"
+      - name: Publish
+        run: npx --yes wrangler@4.157.0 deploy --name timp-dev --assets _dev --compatibility-date 2026-11-01
+
+  pages:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: The tag is the release package.json says
+        env:
+          TAG: ${{ github.ref_name }}
+        run: test "$TAG" = "v$(node -p 'require("./package.json").version')"
       - name: Build
         # RESOLVER_URL, SHARE_URL: repository variables (Settings → Secrets and variables →
         # Actions → Variables): the link resolver (worker/README.md) and the sharing service.
@@ -40,13 +86,5 @@ jobs:
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
           path: _site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
       - id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

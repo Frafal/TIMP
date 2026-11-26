@@ -6,15 +6,19 @@
 //   node tools/build.mjs --out _site --repo https://github.com/you/your-fork \
 //                        --resolver https://timp-resolve.you.workers.dev \
 //                        --share https://timp-share.you.workers.dev
+//   node tools/build.mjs --out _site --name "TIMP dev" --icons tools/dev-icons …
 //
 // --resolver is the address of the link resolver (worker/README.md): it goes in
 // js/config.js and in the Content-Security-Policy, the one place it may be reached.
+//
+// --name and --icons make a second app to try changes on, next to the real one on the
+// same phone: its own name, and icons (the files of the folder) that never look alike.
 //
 // The version is the package version plus a fingerprint of the app's content.
 // Same content, same version: phones are asked to update only when something
 // in the app really changed.
 
-import { readFileSync, writeFileSync, mkdirSync, rmSync, copyFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, rmSync, copyFileSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join, dirname, resolve, relative } from "node:path";
 import { ROOT, appFiles, precacheList, stampSw } from "./lib/app-files.mjs";
@@ -31,6 +35,8 @@ const repoUrl = option("repo", "");
 const resolverUrl = option("resolver", "").replace(/\/+$/, "");
 // --share: the sharing service (accounts, sync); the account section shows only with it.
 const shareUrl = option("share", "").replace(/\/+$/, "");
+const appName = option("name", "");
+const iconsDir = option("icons", "");
 const inside = relative(ROOT, out);
 if(!inside || inside.startsWith("..") || appFiles().some(f => f === inside || f.startsWith(inside + "/"))){
   console.error(`Refusing to build into "${out}": choose an empty folder inside the project, like dist/ or _site/.`);
@@ -69,6 +75,19 @@ function allowConnect(url){
 }
 if(resolverUrl){ configure("RESOLVER_URL", resolverUrl); allowConnect(resolverUrl); }
 if(shareUrl){ configure("SHARE_URL", shareUrl); allowConnect(shareUrl); }
+if(appName){
+  const html = contents.get("index.html").toString("utf8");
+  contents.set("index.html", Buffer.from(html.replace("<title>TIMP</title>", `<title>${appName}</title>`)
+    .replace('name="apple-mobile-web-app-title" content="TIMP"', `name="apple-mobile-web-app-title" content="${appName}"`)));
+  for(const name of ["manifest.webmanifest", "manifest-basic.webmanifest"]){
+    const manifest = JSON.parse(contents.get(name).toString("utf8"));
+    contents.set(name, Buffer.from(JSON.stringify({...manifest, name: appName, short_name: appName}, null, 2) + "\n"));
+  }
+}
+for(const f of iconsDir ? readdirSync(resolve(ROOT, iconsDir)) : []){
+  if(!contents.has("icons/" + f)){ console.error(`--icons: icons/${f} is not an icon of the app`); process.exit(2); }
+  contents.set("icons/" + f, readFileSync(join(resolve(ROOT, iconsDir), f)));
+}
 
 const hash = createHash("sha256");
 files.filter(f => f !== "sw.js").forEach(f => { hash.update(f); hash.update("\0"); hash.update(contents.get(f)); hash.update("\0"); });

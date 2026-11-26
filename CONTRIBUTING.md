@@ -206,8 +206,10 @@ in `js/config.js` is empty, as it is in this repository.
 
 ## Publishing
 
-Every push to `main` is checked (`.github/workflows/ci.yml`) and published to GitHub
-Pages (`deploy.yml`): checks, tests and the browser run again, then `tools/build.mjs`
+Every push to `main` is checked (`.github/workflows/deploy.yml`) and, where the
+repository has a copy to try changes on, published there ("TIMP dev": `--name` and
+`--icons tools/dev-icons`, its own service). A release, a tag `vX.Y.Z`, is published to
+GitHub Pages: checks, tests and the browser run again, then `tools/build.mjs`
 fills in `js/config.js` from the repository's variables (`RESOLVER_URL`, `SHARE_URL`;
 empty, the copy works without them), adds their hosts to the Content-Security-Policy,
 and stamps the version of the offline copy. A fork publishes its own copy the same way,

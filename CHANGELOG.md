@@ -4,6 +4,15 @@ Versions follow [Semantic Versioning](https://semver.org/). The trip file format
 its own version: `travel-in-my-pocket/2` since 3.0. Files in `travel-in-my-pocket/1`
 (1.0 to 2.4) still load: the app converts them.
 
+## Unreleased
+
+- **TIMP dev**, a second app to try changes on before they reach everyone: every push to
+  `main` is published there, with its own name, an icon with an ink DEV band and its own
+  sharing service; the real app is published only from a release tag. `tools/build.mjs`
+  takes `--name` and `--icons`.
+- The "Your AI" sheet showed the wrong help line under the chats (a text written twice in
+  the strings); a test now refuses a text written twice.
+
 ## 4.15.0
 
 - **A new logo, which is the app's icon**: a stitched pocket with the trip's things in it (a

@@ -115,7 +115,7 @@ export async function openLinkedApps(toast){
   const APPS = [["claude", "Claude"], ["chatgpt", "ChatGPT"], ["other", t("otherApp")]];
   const steps = app => [t({claude: "linkStepClaude", chatgpt: "linkStepChatgpt", other: "linkStepOther"}[app]), t("linkStepPaste")];
   const dlg = openSheet({id: "chats-title", title: t("chatsTitle"), cls: "tall", body: `
-    <p class="foot">${esc(t("aiHelp"))}</p>
+    <p class="foot">${esc(t("chatsHelp"))}</p>
     <div class="srows" data-chats aria-busy="true"><p class="foot">…</p></div>
     <button type="button" class="tbtn" data-link-another hidden>${esc(t("linkAnother"))}</button>
     <section class="connect" data-connect hidden>

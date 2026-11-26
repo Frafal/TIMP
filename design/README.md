@@ -109,7 +109,8 @@ The logo is the app's icon (`icons/icon.svg`, its source; the PNGs are made from
   the word and the stitching; the same in both themes. Inside the app the days and places
   keep their own colours.
 - **BR3** Full bleed, never a frame: iOS and Android round it. The maskable icon keeps the
-  pocket inside Android's safe circle; TIMP dev adds an ink DEV band.
+  pocket inside Android's safe circle; TIMP dev adds an ink DEV band (`tools/dev-icons`,
+  made the same way).
 - PNGs: `rsvg-convert -w 512 icons/icon.svg -o icons/icon-512.png` (192, 180 for
   `apple-touch-icon.png`), and `icons/icon-maskable.svg` for `icon-maskable-512.png`.
 

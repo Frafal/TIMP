@@ -179,6 +179,14 @@ test("every language has exactly the same texts as English", () => {
   }
 });
 
+test("no text is written twice in a language: the second would hide the first", () => {
+  const src = readFileSync(join(ROOT, "js/i18n.js"), "utf8");
+  for(const block of src.split(/^  \w+: \{$/m).slice(1)){
+    const keys = [...block.split(/^  \},?$/m)[0].matchAll(/(?:^|[\s,{])(\w+): ["`]/gm)].map(m => m[1]);
+    assert.deepEqual(keys.filter((k, i) => keys.indexOf(k) !== i), []);
+  }
+});
+
 /* ---------- offline ---------- */
 
 test("the service worker lists every file of the app", () => {
@@ -214,6 +222,23 @@ test("the build publishes only the app, stamped with a version", () => {
     for(const i of manifest.icons) assert.ok(existsSync(join(out, i.src.split("?")[0])), i.src);
     for(const f of ["README.md", "package.json", "tools", "test", "private", ".claude", ".github"]) assert.ok(!existsSync(join(out, f)), f);
     assert.ok(readFileSync(join(out, "llms.txt"), "utf8").startsWith("# TIMP"), "llms.txt for AI assistants");
+  }finally{
+    rmSync(out, {recursive: true, force: true});
+  }
+});
+
+test("a second app to try changes: its own name and icons", () => {
+  const out = mkdtempSync(join(ROOT, ".build-test-"));
+  try{
+    execFileSync(process.execPath, [join(ROOT, "tools/build.mjs"), "--out", out, "--name", "TIMP dev", "--icons", "tools/dev-icons"], {stdio: "pipe"});
+    const html = readFileSync(join(out, "index.html"), "utf8");
+    assert.ok(html.includes("<title>TIMP dev</title>") && html.includes('content="TIMP dev"'), "page and Home Screen name");
+    const manifest = JSON.parse(readFileSync(join(out, "manifest.webmanifest"), "utf8"));
+    assert.equal(manifest.short_name, "TIMP dev");
+    for(const i of manifest.icons){
+      const f = i.src.split("?")[0];
+      assert.ok(readFileSync(join(out, f)).equals(readFileSync(join(ROOT, "tools/dev-icons", f.slice(6)))), f);
+    }
   }finally{
     rmSync(out, {recursive: true, force: true});
   }
