@@ -13,6 +13,7 @@
 //
 // --name and --icons make a second app to try changes on, next to the real one on the
 // same phone: its own name, and icons (the files of the folder) that never look alike.
+// --moved-to: the copy left at an old address, saying where the app went (MO1).
 //
 // The version is the package version plus a fingerprint of the app's content.
 // Same content, same version: phones are asked to update only when something
@@ -36,6 +37,7 @@ const resolverUrl = option("resolver", "").replace(/\/+$/, "");
 // --share: the sharing service (accounts, sync); the account section shows only with it.
 const shareUrl = option("share", "").replace(/\/+$/, "");
 const appName = option("name", "");
+const movedTo = option("moved-to", "").replace(/\/+$/, "");
 const iconsDir = option("icons", "");
 const inside = relative(ROOT, out);
 if(!inside || inside.startsWith("..") || appFiles().some(f => f === inside || f.startsWith(inside + "/"))){
@@ -48,6 +50,10 @@ if(repoUrl && !/^https:\/\/[\w.-]+\/[\w./-]+$/.test(repoUrl)){
 }
 if(shareUrl && !/^https:\/\/[\w.-]+(:\d+)?$/.test(shareUrl)){
   console.error(`--share must be an https origin, got "${shareUrl}"`);
+  process.exit(2);
+}
+if(movedTo && !/^https:\/\/[\w.-]+$/.test(movedTo)){
+  console.error(`--moved-to must be an https origin, got "${movedTo}"`);
   process.exit(2);
 }
 if(resolverUrl && !/^https:\/\/[\w.-]+(\/[\w./-]*)?$/.test(resolverUrl)){
@@ -75,6 +81,7 @@ function allowConnect(url){
 }
 if(resolverUrl){ configure("RESOLVER_URL", resolverUrl); allowConnect(resolverUrl); }
 if(shareUrl){ configure("SHARE_URL", shareUrl); allowConnect(shareUrl); }
+if(movedTo) configure("MOVED_TO", movedTo);
 if(appName){
   const html = contents.get("index.html").toString("utf8");
   contents.set("index.html", Buffer.from(html.replace("<title>TIMP</title>", `<title>${appName}</title>`)

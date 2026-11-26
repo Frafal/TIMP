@@ -1518,7 +1518,24 @@ await withApp(async ({run, until, reload, blocked}) => {
   await step("the Content-Security-Policy blocked nothing the app needs", async () => {
     assert.deepEqual(blocked(), []);
   });
-}).then(() => { const api = fakeService(); return withApp(ctx => accountSteps({...ctx, service: api.state}), {api, host: "localhost"}); }).then(() => {
+}).then(() => { const api = fakeService(); return withApp(ctx => accountSteps({...ctx, service: api.state}), {api, host: "localhost"}); }).then(() => withApp(async ({run, until, blocked}) => {
+  // The copy left at the old address (MO1-MO2): where the app went, and how to move what is only here.
+  await step("the copy at an old address: says where TIMP went, on Welcome and Trips; how to move a trip that is only on this phone", async () => {
+    await until("the card", `document.querySelector(".welcome .moved h2")`);
+    assert.equal(await run(`return document.querySelector(".moved h2").textContent;`), "TIMP has moved to usetimp.example");
+    assert.equal(await run(`return document.querySelector(".moved a.btn").getAttribute("href");`), "https://usetimp.example/");
+    await run(`document.querySelector('[data-act="demo"]').click();`);
+    await until("the example loaded", `document.querySelector(".stop")`);
+    await run(`location.hash = "#trips";`);
+    await until("the card on Trips, with the trip", `document.querySelector("#app .moved") && document.querySelector(".tripcard")`);
+    await run(`document.querySelector('[data-act="how-to-move"]').click();`);
+    await until("how to move", `document.querySelector('dialog[aria-labelledby="move-title"] [data-save]')`);
+    assert.equal(await run(`return document.getElementById("move-title").textContent;`), "Move to usetimp.example");
+    assert.deepEqual(await run(`return [...document.querySelectorAll('dialog[aria-labelledby="move-title"] .chat b')].map(b => b.textContent);`), ["Lisbon in my pocket (example)"], "the trip only here, to save");
+    assert.equal(await run(`return !!document.querySelector('dialog[aria-labelledby="move-title"] [data-approve]');`), false, "no account here: nothing to approve");
+    assert.deepEqual(blocked(), []);
+  });
+}, {moved: "https://usetimp.example"})).then(() => {
   console.log(`e2e: OK (${passed} checks)`);
 }).catch(e => {
   // Why, even when it failed before the first step (a step says its own failure).

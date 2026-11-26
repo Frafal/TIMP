@@ -1,6 +1,6 @@
 {
   "name": "travel-in-my-pocket",
-  "version": "4.17.0",
+  "version": "4.18.0",
   "description": "A pocket travel guide that works offline. The app is public, your trip stays on your phone.",
   "author": "Francesco Falqui",
   "private": true,
@@ -23,5 +23,5 @@
     "type": "git",
     "url": "git+https://github.com/Frafal/TIMP.git"
   },
-  "homepage": "https://frafal.github.io/TIMP/"
+  "homepage": "https://usetimp.com/"
 }

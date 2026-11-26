@@ -11,7 +11,7 @@ import { AHEAD, placeOf, localHours, dayWeather, stopWeather } from "./weather.j
 import { createLiveMap } from "./livemap.js";
 import { googleNeedsReload, googleRefusedKey } from "./google.js";
 import { versionStore } from "./objects.js";
-import { REPO_URL } from "./config.js";
+import { REPO_URL, MOVED_TO } from "./config.js";
 import { openStopEditor, openDayEditor, openExpenseEditor, openMoveDay } from "./editor.js";
 import { ask } from "./ask.js";
 import { openSheet } from "./sheet.js";
@@ -34,7 +34,7 @@ import { openShareSheet } from "./sharing.js";
 import { chooseFirstDay } from "./publishing.js";
 import { asBase } from "./publish.js";
 import { syncTrip, syncPrivate, syncGroup, withGroup, whereOf, pendingTicks } from "./sync.js";
-import { openSignUp, openLinkedApps, openDevices, openRecover, openTerms, legalUrl, accountError, recently, openSignInHere, openLinkPhone, deviceName } from "./account.js";
+import { openSignUp, openLinkedApps, openDevices, openRecover, openTerms, legalUrl, accountError, recently, openSignInHere, openLinkPhone, openApprove, deviceName } from "./account.js";
 import { TERMS } from "./share-api.js";
 import { searchTrip } from "./search.js";
 import { PARTS, partOf, minutesOf, atTime } from "./parts.js";
@@ -1308,8 +1308,35 @@ function homePicker(){
 
 // Welcome, for whoever comes first (WL1–WL5): your AI is your travel agent; the account in
 // sight; the rest in a quiet row; the Home Screen's steps only when not installed.
+// The copy left at the old address (MO1): where the app went, at the top of Trips and
+// Welcome, with how to move.
+const movedHost = () => new URL(MOVED_TO).host;
+const movedCard = () => !MOVED_TO ? "" : `<section class="moved" aria-labelledby="moved-h"><h2 id="moved-h">${esc(t("movedTitle", {u: movedHost()}))}</h2>
+  <p>${esc(t("movedText"))}</p><div class="acts"><a class="btn primary" href="${esc(MOVED_TO)}/" target="_blank" rel="noopener">${esc(t("movedOpen", {u: movedHost()}))}</a>
+  <button type="button" class="tbtn" data-act="how-to-move">${esc(t("movedHow"))}</button></div></section>`;
+
+// How to move (MO2), as this phone is: with an account, the new app approved from here;
+// each trip that is only here, saved as a file to load there.
+function howToMove(){
+  const u = movedHost(), lang = getLang();
+  const only = S.records.filter(r => !r.public && !(r.share && r.share.id && !r.share.gone));
+  const dlg = openSheet({id: "move-title", title: t("moveTitle", {u}), body: `
+    ${S.account ? `<h3 class="trip-group">${esc(t("moveAccount", {h: S.account.handle}))}</h3>
+      <ol class="steps"><li>${esc(t("moveStep1", {u}))}</li><li>${esc(t("moveStep2"))}</li><li>${esc(t("moveStep3"))}</li></ol>
+      <button type="button" class="btn primary" data-approve>${esc(t("moveApprove"))}</button>` : ""}
+    ${only.length ? `<h3 class="trip-group">${esc(t("moveOnlyHere"))}</h3>
+      ${only.map(r => `<div class="chat"><span class="who"><b>${esc(r.trip.title)}</b><small>${esc(datesOf(r, lang))}</small></span><button type="button" class="tbtn" data-save="${esc(r.id)}">${esc(t("saveFile"))}</button></div>`).join("")}
+      <p class="foot">${esc(t("moveLoadThere", {u}))}</p>` : ""}
+    ${!S.account && !only.length ? `<p class="foot">${esc(t("moveNothing", {u}))}</p>` : ""}`});
+  dlg.addEventListener("click", e => {
+    if(e.target.closest("[data-approve]")) return openApprove({toast});
+    const save = e.target.closest("[data-save]"), rec = save && S.records.find(r => r.id === save.dataset.save);
+    if(rec) saveFile(rec);
+  });
+}
+
 function renderWelcome(){
-  return `<section class="welcome">
+  return `<section class="welcome">${movedCard()}
     <div class="brand"><img src="icons/icon.svg" width="64" height="64" alt="TIMP"><small>Travel in my pocket</small></div>
     <div class="say"><h1>${esc(t("welcomeHead"))}</h1><p>${esc(t("welcomeLine"))}</p></div>
     ${errorBox()}
@@ -1839,6 +1866,7 @@ function renderTrips(){
     ${list || `<p class="foot">${esc(t("noTripsFound"))}</p>`}</section>` : "");
   return `
   <h1>${esc(t("yourTrips"))}</h1>
+  ${movedCard()}
   ${errorBox()}
   ${syncLine()}
   ${cards}
@@ -3073,6 +3101,7 @@ function runAct(act){
   else if(a === "me") location.hash = "#me";
   else if(a === "remove") removeRecord(act.dataset.id);
   else if(a === "save"){ const rec = S.records.find(r => r.id === act.dataset.id); if(rec) saveFile(rec); }
+  else if(a === "how-to-move") howToMove();
   else if(a === "history") showHistory(act.dataset.id);
   else if(a === "open"){
     // The trip, on today if it is under way (TR1): the open one is only shown again.

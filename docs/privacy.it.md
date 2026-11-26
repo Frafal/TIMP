@@ -1,6 +1,6 @@
 # Informativa sulla privacy
 
-Versione del 26 novembre 2026. [In English](privacy.md).
+Versione del 27 novembre 2026. [In English](privacy.md).
 
 ## Chi è responsabile
 
@@ -28,8 +28,8 @@ europea.
 - Il meteo si chiede al servizio di TIMP con un luogo arrotondato a circa 10 km; il servizio
   lo chiede a MET Norway con al massimo un chilometro di precisione e non conserva nulla di
   chi l'ha chiesto.
-- I file dell'app sono ospitati da GitHub Pages, che vede il tuo indirizzo IP quando li
-  carica.
+- I file dell'app li serve Cloudflare su usetimp.com, che vede il tuo indirizzo IP quando li
+  carica (fino al 26 dicembre 2026 anche GitHub Pages, al vecchio indirizzo dell'app).
 - Un file viaggio che salvi va solo dove lo mandi; le spese private ci finiscono solo se lo
   dici tu.
 
@@ -42,6 +42,7 @@ europea.
 | I tuoi viaggi, le loro versioni e le tue spese private, cifrati | I tuoi viaggi su ogni telefono, condivisi con chi scegli | Contratto | Finché non li cancelli tu, o l'account |
 | Con chi è condiviso un viaggio, gli inviti, cosa mostri al gruppo | La condivisione | Contratto | Inviti 14 giorni; il resto finché lo togli |
 | Un viaggio che pubblichi | La pagina che hai scelto di pubblicare | Contratto | Finché non la ritiri |
+| Un telefono aggiunto con un codice: il nome che si danno il browser che chiede e quello che approva, il codice e un segreto come hash | Aggiungere un telefono al tuo account, e avvisarne gli altri telefoni | Contratto | 10 minuti mentre aspetta; dopo l'uso, 14 giorni |
 | Le chat che colleghi (quale app, cosa può fare, quando è stata usata) e le loro chiavi, come hash | Far lavorare la tua AI sui tuoi viaggi | Contratto | Finché non la scolleghi; chiavi 1 ora, rinnovabili per 60 giorni |
 | L'invito con cui ti sei registrato | Gli account sono su invito | Legittimo interesse (art. 6.1.f) | Finché non cancelli l'account |
 | Un registro di sicurezza: accessi, uscite, chat collegate, viaggi cancellati… con un numero interno, mai il contenuto dei viaggi, indirizzi o IP | La sicurezza, prevenire abusi | Legittimo interesse | 180 giorni |
@@ -56,7 +57,8 @@ altro ti ha condiviso restano nel suo viaggio quando te ne vai, non più legate 
 - **Cloudflare** fa funzionare il servizio e il suo database. Il database è nell'Unione
   europea e ci resta; la rete di Cloudflare può portare le richieste anche fuori, secondo il
   suo accordo sul trattamento dei dati e le clausole contrattuali tipo dell'UE.
-- **GitHub** ospita i file dell'app. **MET Norway** riceve un luogo arrotondato per il meteo.
+- **Cloudflare** serve anche i file dell'app; **GitHub** li ha serviti al vecchio indirizzo
+  fino al 26 dicembre 2026. **MET Norway** riceve un luogo arrotondato per il meteo.
   I servizi di mappa, ricerca e cambi li interroga il tuo telefono, come sopra.
 - **La tua chat AI**: quando colleghi Claude, ChatGPT o un'altra chat, ciò che legge dei tuoi
   viaggi va a quella società, alle sue condizioni. Scegli tu quale, e la scolleghi in Tu →

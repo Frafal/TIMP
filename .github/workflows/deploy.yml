@@ -8,7 +8,10 @@ name: Deploy
 #   (Workers Scripts, edit) and CLOUDFLARE_ACCOUNT_ID are set: a fork without them skips it.
 # - a release, a tag vX.Y.Z on main: the real one, on GitHub Pages. One-time setup:
 #   Settings → Pages → Source: "GitHub Actions"; Environments → github-pages: allow the
-#   tags "v*".
+#   tags "v*". With the repository variable SITE_URL (https://usetimp.com), the real one is
+#   at that address too, a Cloudflare Worker of static files named timp (the environment
+#   `production`: tags "v*", its own CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID), and the
+#   copy on GitHub Pages says the app went there (tools/build.mjs --moved-to).
 
 on:
   push:
@@ -56,13 +59,16 @@ jobs:
       - name: Publish
         run: npx --yes wrangler@4.157.0 deploy --name timp-dev --assets _dev --compatibility-date 2026-11-01
 
-  pages:
+  release:
     needs: test
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pages: write
+    environment: production
+    env:
+      SITE_URL: ${{ vars.SITE_URL }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -80,7 +86,25 @@ jobs:
         # RESOLVER_URL, SHARE_URL: repository variables (Settings → Secrets and variables →
         # Actions → Variables): the link resolver (worker/README.md) and the sharing service.
         # Unset: none, and the app works without them.
-        run: node tools/build.mjs --out _site --repo "${{ github.server_url }}/${{ github.repository }}" --resolver "${{ vars.RESOLVER_URL }}" --share "${{ vars.SHARE_URL }}"
+        run: |
+          build(){ node tools/build.mjs --repo "${{ github.server_url }}/${{ github.repository }}" --resolver "${{ vars.RESOLVER_URL }}" --share "${{ vars.SHARE_URL }}" "$@"; }
+          if [ -n "$SITE_URL" ]; then build --out _app; build --out _site --moved-to "$SITE_URL"; else build --out _site; fi
+      - name: Publish at SITE_URL, before GitHub Pages says the app is there
+        if: env.SITE_URL != ''
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: "false"
+        run: |
+          npx --yes wrangler@4.157.0 deploy --name timp --assets _app --domain "${SITE_URL#https://}" --compatibility-date 2026-11-01
+          # The new version reaches Cloudflare's edge within seconds, not at once.
+          want=$(grep -o 'const VERSION = "[^"]*"' _app/sw.js)
+          for i in $(seq 1 24); do
+            got=$(curl -fsS "$SITE_URL/sw.js" | grep -o 'const VERSION = "[^"]*"' || true)
+            if [ "$got" = "$want" ]; then echo "$SITE_URL: $got"; exit 0; fi
+            sleep 5
+          done
+          echo "$SITE_URL still answers: $got"; exit 1
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
@@ -89,7 +113,7 @@ jobs:
   # A job of its own, as in GitHub's own workflow: by then the files uploaded above are
   # listed. In the same job, deploy-pages once looked too soon and found none (4.16.1).
   pages-deploy:
-    needs: pages
+    needs: release
     runs-on: ubuntu-latest
     permissions:
       pages: write

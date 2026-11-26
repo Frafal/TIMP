@@ -1,6 +1,6 @@
 # Termini d'uso
 
-Versione del 26 novembre 2026. [In English](terms.md).
+Versione del 27 novembre 2026. [In English](terms.md).
 
 Questi termini valgono per il servizio di TIMP: account, sincronizzazione, condivisione,
 pubblicazione e chat collegate. L'app in sé è software libero con [licenza MIT](../LICENSE)

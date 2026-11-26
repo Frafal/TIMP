@@ -569,6 +569,11 @@ h2.part{font:700 1.35rem var(--f-display);color:var(--ink);margin:14px 0 -6px}
 .acct .who small{font:500 .74rem var(--f-mono);color:var(--muted)}
 .acct .acts{display:flex;gap:6px;flex-wrap:wrap}
 .chats{display:grid;gap:10px}
+/* the copy left at an old address (MO1): where the app went, how to move */
+.moved{display:grid;gap:var(--sp-3);padding:var(--sp-4) var(--sp-5);border-radius:18px;background:var(--card);border:1px solid var(--line)}
+.moved h2{margin:0;font:700 var(--fs-l)/1.25 var(--f-display)}
+.moved p{margin:0;color:var(--muted);font-size:.9rem}
+.moved .acts{display:flex;flex-wrap:wrap;gap:var(--sp-2) var(--sp-4);align-items:center}
 /* a code to read on one phone and type on another (LK1): large, spaced, mono */
 .lcode{margin:0;font:700 2rem/1 var(--f-mono);letter-spacing:.14em;text-align:center;padding:var(--sp-5) var(--sp-2);border-radius:var(--r-m);background:var(--bg);font-variant-numeric:tabular-nums}
 .me-actions{display:grid;gap:8px}

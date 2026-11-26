@@ -1,6 +1,6 @@
 # Terms of use
 
-Version of 26 November 2026. [In italiano](terms.it.md).
+Version of 27 November 2026. [In italiano](terms.it.md).
 
 These terms are for TIMP's service: accounts, sync, sharing, publishing and linked chats.
 The app itself is free software under the [MIT license](../LICENSE) and needs no account.

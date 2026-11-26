@@ -57,7 +57,8 @@ try{
     try{ await fetch(base + "/status"); break; }
     catch(e){ if(i > 75) throw new Error(`${DRIVER} did not start` + (MAC ? ": run `sudo safaridriver --enable` once" : "")); await sleep(200); }
   }
-  server = await serve({});
+  // As the copy left at an old address: its card must fit too (MO1).
+  server = await serve({moved: "https://usetimp.example"});
   const app = `http://127.0.0.1:${server.address().port}/`;
   sid = (await wd("POST", "/session", {capabilities: {alwaysMatch: capabilities()}})).sessionId;
   // As narrow as Safari lets a window be: the layout must hold at any width.

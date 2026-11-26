@@ -4,6 +4,18 @@ Versions follow [Semantic Versioning](https://semver.org/). The trip file format
 its own version: `travel-in-my-pocket/2` since 3.0. Files in `travel-in-my-pocket/1`
 (1.0 to 2.4) still load: the app converts them.
 
+## 4.18.0
+
+- **TIMP moves to usetimp.com**: the app is served there (a Cloudflare Worker of static
+  files, from a release tag, when the repository variable `SITE_URL` is set); the copy at
+  the old address says so at the top of Trips and Welcome, with How to move: with an
+  account, approve the new app from there (a phone by code); each trip only on that phone,
+  saved as a file to load at the new address. The old address works until 26 December
+  2026. `tools/build.mjs --moved-to`. The README, the guides and `llms.txt` name the new
+  address; the privacy policy says who serves the app's files now.
+- **The terms and the privacy policy of 27 November 2026** (who serves the app's files; what
+  a phone by code keeps): every account is asked to read and accept them again.
+
 ## 4.17.0
 
 - **A phone by code**: on a phone without a passkey of your account, Sign in offers "From a

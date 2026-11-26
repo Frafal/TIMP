@@ -246,7 +246,8 @@ test("the build publishes only the app, stamped with a version", () => {
 test("a second app to try changes: its own name and icons", () => {
   const out = mkdtempSync(join(ROOT, ".build-test-"));
   try{
-    execFileSync(process.execPath, [join(ROOT, "tools/build.mjs"), "--out", out, "--name", "TIMP dev", "--icons", "tools/dev-icons"], {stdio: "pipe"});
+    execFileSync(process.execPath, [join(ROOT, "tools/build.mjs"), "--out", out, "--name", "TIMP dev", "--icons", "tools/dev-icons", "--moved-to", "https://usetimp.example/"], {stdio: "pipe"});
+    assert.ok(readFileSync(join(out, "js/config.js"), "utf8").includes(`export const MOVED_TO = "https://usetimp.example";`), "the copy left at an old address");
     const html = readFileSync(join(out, "index.html"), "utf8");
     assert.ok(html.includes("<title>TIMP dev</title>") && html.includes('content="TIMP dev"'), "page and Home Screen name");
     const manifest = JSON.parse(readFileSync(join(out, "manifest.webmanifest"), "utf8"));

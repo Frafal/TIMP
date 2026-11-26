@@ -433,6 +433,13 @@ A phone joins an account with a code it shows, approved on a device already sign
   Remove it (red) and It was me; the passkey's row says "added with a code".
 - **LK5** Sign in stays one tap; when this phone has no passkey of the account (the prompt
   closed or empty), a sheet offers the phone already signed in first, a recovery code last.
+- **MO1** The copy left at an old address (`MOVED_TO`, `tools/build.mjs --moved-to`) says so
+  once, clearly: a card (`.moved`) at the top of Trips and Welcome, with Open (the new
+  address, in the browser) and How to move.
+- **MO2** How to move fits this phone: with an account, three steps and Approve the new app
+  (LK2); each trip only on this phone, with Save the file, to load there.
+- **MO3** The old address stays one month (until 26 December 2026), the whole app with the
+  card.
 
 ## Sheets
 

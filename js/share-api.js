@@ -12,7 +12,7 @@ export const API = "1";
 
 // The version of the terms of use and of the privacy policy (docs/terms.md,
 // docs/privacy.md): accepted at sign-up, and again by every account when it changes.
-export const TERMS = "2026-11-26";
+export const TERMS = "2026-11-27";
 
 /*
  * A field: {type, req, null, values, of, doc}
