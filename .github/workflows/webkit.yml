@@ -6,7 +6,7 @@ name: WebKit
 # it will be once it has proved steady.
 on:
   push:
-    branches: [main]
+    branches: [develop]
   pull_request:
   workflow_dispatch:
 
