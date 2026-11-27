@@ -47,3 +47,27 @@ export function rowValue(dlg, k, text){
   el.textContent = text || "";
   el.closest(".dhead").classList.toggle("set", !!text);
 }
+
+/**
+ * Text to the clipboard, true when copied. First a field selected and copied, in the open
+ * sheet (a modal sheet makes the rest of the page inert): it works right after a passkey
+ * or Face ID prompt, when iPhones refuse the Clipboard API because the page has not got
+ * its focus back; then the Clipboard API.
+ */
+export async function copyText(text){
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.readOnly = true;
+  // 16px: Safari zooms into a smaller field, even an invisible one.
+  area.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px";
+  ([...document.querySelectorAll("dialog[open]")].pop() || document.body).appendChild(area);
+  area.focus({preventScroll: true});
+  area.select();
+  area.setSelectionRange(0, text.length);
+  let done = false;
+  try{ done = document.execCommand("copy"); }catch(e){}
+  area.remove();
+  if(done) return true;
+  try{ await navigator.clipboard.writeText(text); return true; }catch(e){ return false; }
+}
+

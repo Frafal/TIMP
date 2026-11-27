@@ -89,6 +89,11 @@ try{
   const s0 = (trip.days[0].stops || trip.days[0].plans[0].stops)[0];
   s0.text = long;
   s0.title = "A stop with a name long enough to need two lines on a phone held upright";
+  // Alternatives with long names: the closed group's line of the others never wider than the screen.
+  (trip.days[0].stops || trip.days[0].plans[0].stops).push(
+    {title: "Lunch at the restaurant with the longest name of the whole old town", choice: "Lunch", chosen: true, lat: 38.711, lng: -9.136},
+    {title: "Lunch at the market hall by the river, upstairs, with the view on the bridge", choice: "Lunch", lat: 38.707, lng: -9.146},
+    {title: "Lunch in the garden of the museum of the azulejos, if the weather holds", choice: "Lunch", lat: 38.724, lng: -9.113});
   // Pasted, as from a chat: WebKitGTK cannot be handed a file the way Chrome is.
   await until("the app", `document.querySelector('[data-act="demo"]')`);
   await check("welcome: the headline on one line, in English and in Italian (WL1)", async () => {

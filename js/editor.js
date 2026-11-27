@@ -102,11 +102,9 @@ export function openStopEditor(o){
   const keep0 = clock0 === null && !part0 ? time0 : "";
   const partOpts = (keep0 ? `<option value="${esc(keep0)}" selected>${esc(keep0)}</option>` : "") +
     PARTS.map(p => `<option value="${p}"${p === part0 ? " selected" : ""}>${esc(t("part_" + p))}</option>`).join("");
+  // The phone's own clock (Android's dial, iPhone's wheels), noon when there is no time yet.
   const two = n => String(n).padStart(2, "0");
-  const h0 = clock0 !== null ? Math.floor(clock0 / 60) : 12, m0 = clock0 !== null ? clock0 % 60 : 0;
-  // Minutes in steps of five, plus the stop's own minute when it is not one of them.
-  const minutes = [...new Set([...Array(12).keys()].map(i => i * 5).concat(m0))].sort((a, b) => a - b);
-  const opts = (list, cur) => list.map(n => `<option value="${two(n)}"${n === cur ? " selected" : ""}>${two(n)}</option>`).join("");
+  const hhmm0 = clock0 !== null ? `${two(Math.floor(clock0 / 60))}:${two(clock0 % 60)}` : "12:00";
 
   // The days of the trip, and one more after the last: a stop put there makes it (a
   // day cannot be empty). It is in the same city as the last day, until changed.
@@ -164,7 +162,7 @@ export function openStopEditor(o){
       }).join("")}</div>
       <p class="foot" data-new-day hidden></p>
       <div class="seg timeway" role="group" aria-label="${esc(t("fTime"))}"><button type="button" data-time-mode="clock" aria-pressed="${clock0 !== null}">${esc(t("timeClockShort"))}</button><button type="button" data-time-mode="words" aria-pressed="${clock0 === null}">${esc(t("timePart"))}</button></div>
-      <span id="stop-time" class="clock" role="group" aria-label="${esc(t("fTime"))}"${clock0 !== null ? "" : " hidden"}><select id="stop-hh" aria-label="${esc(t("fHour"))}">${opts([...Array(24).keys()], h0)}</select><span aria-hidden="true">:</span><select id="stop-mm" aria-label="${esc(t("fMinute"))}">${opts(minutes, m0)}</select></span>
+      <input id="stop-time" type="time" value="${hhmm0}" aria-label="${esc(t("fTime"))}"${clock0 !== null ? "" : " hidden"}>
       <select id="stop-time-words" aria-label="${esc(t("fTimePart"))}"${clock0 === null ? "" : " hidden"}>${partOpts}</select>
     </div>
     <div class="field" data-plan-field hidden>
@@ -335,7 +333,7 @@ export function openStopEditor(o){
   }
 
   // The time as written in the form: hours and minutes, or a part of the day.
-  const timeValue = () => $("#stop-time").hidden ? $("#stop-time-words").value.trim() : `${$("#stop-hh").value}:${$("#stop-mm").value}`;
+  const timeValue = () => $("#stop-time").hidden ? $("#stop-time-words").value.trim() : $("#stop-time").value;
   const closedNow = () => [...[...dlg.querySelectorAll('[data-closed][aria-pressed="true"]')].map(b => b.dataset.closed), ...closed0.filter(d => !WEEK.includes(d))];
   const stopsOf = d => d.plans ? d.plans.flatMap(p => p.stops) : d.stops;
   const placed = () => stopsOf(days[+$("#stop-day").value]).filter(x => x.lat !== undefined);
@@ -501,7 +499,7 @@ export function openStopEditor(o){
   });
   dlg.addEventListener("input", e => { if(e.target.closest(".dbody")) refresh(); });
   dlg.addEventListener("close", () => { closePicker(); hideHitMap(); }, {once: true});
-  dlg.addEventListener("change", e => { if(e.target.matches("#stop-hh, #stop-mm, #stop-time-words, #stop-plan")) refresh(); });
+  dlg.addEventListener("change", e => { if(e.target.matches("#stop-time, #stop-time-words, #stop-plan")) refresh(); });
   $("#stop-day").addEventListener("change", () => { fillPlans(); refresh(); });
   const dateNow = () => days[+$("#stop-day").value].date;
   money.wire(dlg, dateNow);

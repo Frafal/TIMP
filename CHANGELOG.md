@@ -4,6 +4,23 @@ Versions follow [Semantic Versioning](https://semver.org/). The trip file format
 its own version: `travel-in-my-pocket/2` since 3.0. Files in `travel-in-my-pocket/1`
 (1.0 to 2.4) still load: the app converts them.
 
+## Unreleased
+
+- **Alternatives open like stops**: in a group, each option is a stop of its own: a tap on
+  it shows its signals, description, cost, Map, Directions and Edit; only its circle
+  chooses it. Who goes there is said under its name.
+- **History on a new phone, or at the new address**: the versions this phone has not got
+  come from your account, which keeps them all, checked against their ids and kept here
+  for next time.
+- **A stop's time with the phone's own clock** (Android's dial, iPhone's wheels) instead of
+  two lists of hours and minutes, which 3.3.0 brought in because Chrome on Android put the
+  clock's Set button off narrow screens: to try again on Android.
+- Copying the recovery codes copies them on iPhones too, right after Face ID; every copy in
+  the app is one function now.
+- A group of alternatives with long names no longer makes the day wider than the screen.
+- Italian: "Per tutti: arriva a miriana alla prossima sincronizzazione", with no verb to
+  agree with one person or many.
+
 ## 4.18.0
 
 - **TIMP moves to usetimp.com**: the app is served there (a Cloudflare Worker of static
