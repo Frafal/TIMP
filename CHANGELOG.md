@@ -4,7 +4,7 @@ Versions follow [Semantic Versioning](https://semver.org/). The trip file format
 its own version: `travel-in-my-pocket/2` since 3.0. Files in `travel-in-my-pocket/1`
 (1.0 to 2.4) still load: the app converts them.
 
-## Unreleased
+## 4.19.0
 
 - **Alternatives open like stops**: in a group, each option is a stop of its own: a tap on
   it shows its signals, description, cost, Map, Directions and Edit; only its circle
