@@ -12,9 +12,10 @@ its own version: `travel-in-my-pocket/2` since 3.0. Files in `travel-in-my-pocke
 - **History on a new phone, or at the new address**: the versions this phone has not got
   come from your account, which keeps them all, checked against their ids and kept here
   for next time.
-- **Save with its history** (a trip's sheet, and How to move at the old address): a file
-  with every version this phone has, for another phone or address without an account;
-  loaded as any file, each version kept only if it is what its id says
+- **Save the file with its history**: Save the file asks once, with a box each, nothing
+  ticked at first: my private expenses, its history (every version this phone has, for
+  another phone or address without an account). How to move at the old address always
+  takes the history. Loaded as any file, each version kept only if it is what its id says
   (`travel-in-my-pocket/history`, docs/trip-format.md).
 - **Quick taps on two alternatives**: the circle moves at once, the choices are saved one
   after the other, and of quick taps the last one stays (the second was lost to the first

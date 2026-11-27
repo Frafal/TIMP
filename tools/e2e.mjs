@@ -39,6 +39,9 @@ async function atOnce(run, tap, what){
 // `id` null: the open trip's.
 const tripSheet = id => `(document.querySelector('${id ? `[data-act="trip-menu"][data-id="${id}"]` : `.active-trip [data-act="trip-menu"]`}').click(), document.querySelector("dialog.tripmenu[open]"))`;
 const inSheet = (id, act) => `${tripSheet(id)}.querySelector('[data-act="${act}"]')`;
+// Save the file's question: the boxes whose label starts with one of `ticks` ticked, then Save.
+const saveAnswer = (...ticks) => `document.querySelectorAll("dialog.ask .ask-check").forEach(l => { l.querySelector("input").checked = ${JSON.stringify(ticks)}.some(x => l.textContent.startsWith(x)); });
+  document.querySelector('dialog.ask [data-answer="save"]').click(); await new Promise(r => setTimeout(r, 600));`;
 // What a trip's sheet says (`sel`'s text, null without it), the sheet closed again.
 const sheetSays = (id, sel) => `const d = ${tripSheet(id)}, e = d.querySelector('${sel}'), v = e ? e.textContent : null; d.close(); return v;`;
 
@@ -604,8 +607,10 @@ await withApp(async ({run, until, reload, blocked}) => {
     await run(`${inSheet("demo-lisbon", "save")}.click();`);
     // The example's private expenses came with it: the app asks whether they go in the file.
     await until("the question", `document.querySelector("dialog.ask[open]")`);
-    assert.deepEqual(await run(`return [...document.querySelectorAll("dialog.ask [data-answer]")].map(b => b.textContent);`), ["Cancel", "Without", "With private expenses"]);
-    await answer("with");
+    assert.deepEqual(await run(`return [...document.querySelectorAll("dialog.ask [data-answer]")].map(b => b.textContent);`), ["Cancel", "Save"]);
+    assert.deepEqual(await run(`return [...document.querySelectorAll("dialog.ask .ask-check")].map(l => [l.textContent.split(":")[0], l.querySelector("input").checked]);`),
+      [["My private expenses (2)", false], ["Its history (4 earlier versions)", false]], "a box each, nothing ticked at first");
+    await run(saveAnswer("My private expenses"));
     assert.equal(await run(`return window.__files.length;`), 1, "refused by the share sheet, the file is downloaded instead");
     saved = JSON.parse(await run(`return await window.__files[0].text();`));
     assert.deepEqual(saved.private.expenses.map(x => x.cost), [24, 18]);
@@ -1299,17 +1304,26 @@ await withApp(async ({run, until, reload, blocked}) => {
     await run(`navigator.canShare = () => false;`);
     await run(`${inSheet("demo-lisbon", "save")}.click();`);
     await until("the question", `document.querySelector("dialog.ask[open]")`);
-    await answer("without");
+    await run(saveAnswer());
     const without = JSON.parse(await run(`return await window.__files[0].text();`));
     assert.equal(without.private, undefined);
     assert.equal(await run(`return !!document.querySelector(".tripcard [data-unsaved]");`), true, "the private ones are not saved yet");
     await run(`${inSheet("demo-lisbon", "save")}.click();`);
     await until("the question", `document.querySelector("dialog.ask[open]")`);
-    await answer("with");
+    await run(saveAnswer("My private expenses"));
     const withThem = JSON.parse(await run(`return await window.__files[1].text();`));
     assert.equal(withThem.version.id, without.version.id, "the same version, with or without them");
     assert.deepEqual([withThem.private.owner, withThem.private.expenses.length], [owner, 3]);
     assert.equal(await run(`return !!document.querySelector(".tripcard [data-unsaved]");`), false);
+    // With its history too: a file around the trip, with every version this phone has.
+    await run(`${inSheet("demo-lisbon", "save")}.click();`);
+    await until("the question", `document.querySelector("dialog.ask[open]")`);
+    await run(saveAnswer("My private expenses", "Its history"));
+    const withAll = JSON.parse(await run(`return await window.__files[2].text();`));
+    assert.equal(withAll.format, "travel-in-my-pocket/history");
+    assert.equal(withAll.trip.version.id, without.version.id);
+    assert.ok(withAll.versions.length > 0 && withAll.versions.every(v => v.id === "demo-lisbon"), "its earlier versions");
+    assert.equal(withAll.trip.private.expenses.length, 3);
     // Someone else's file: their private expenses stay out, this phone's are never mixed with them.
     await sendFile({...withThem, private: {owner: "p-bbbbbbbbbbbb", expenses: [{title: "A watch", cost: 900}]}});
     assert.match(await toastText(), /someone else's: left out/);

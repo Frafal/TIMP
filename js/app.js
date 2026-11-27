@@ -993,17 +993,20 @@ async function handOver(file, title){
 // A trip as a file, handed over; the version marked as saved. With private expenses,
 // the traveller says first whether they go in the file: kept for themselves, left out
 // for someone else.
-// `history`: with the versions before it that this phone has (another phone or address,
-// without an account, gets the whole history).
-async function saveFile(rec, {history = false} = {}){
-  let priv = null;
-  if(rec.priv && rec.priv.expenses.length){
-    const answer = await ask({title: t("saveFile"), text: t("saveWhich", {n: rec.priv.expenses.length}),
-      actions: [{id: "cancel", label: t("cancel")}, {id: "without", label: t("saveWithout")}, {id: "with", label: t("saveWith"), kind: "primary"}]});
-    if(answer !== "with" && answer !== "without") return;
-    if(answer === "with") priv = rec.priv;
-  }
-  const file = history ? new File([historyText(rec.trip, priv, await olderVersions(versions, rec.trip))], historyName(rec.trip), {type: "application/json"})
+// One question when there is something to choose, a box each: the private expenses (for
+// oneself, never for someone else), the versions before it that this phone has (for
+// another phone or address without an account). Nothing ticked at first: only what the
+// traveller ticks goes in. `history`: always with it (moving to a new address).
+async function saveFile(rec, {history: always = false} = {}){
+  const older = await olderVersions(versions, rec.trip), n = rec.priv ? rec.priv.expenses.length : 0;
+  const withPriv = n ? {label: t("saveWithPriv", {n}), checked: false} : null;
+  const withHistory = older.length && !always ? {label: t("saveWithHistory", {n: older.length}), checked: false} : null;
+  const boxes = [withPriv, withHistory].filter(Boolean);
+  if(boxes.length && await ask({title: t("saveFile"), text: t("saveAsk"), check: boxes,
+    actions: [{id: "cancel", label: t("cancel")}, {id: "save", label: t("save"), kind: "primary"}]}) !== "save") return;
+  const priv = withPriv && withPriv.checked ? rec.priv : null;
+  const history = older.length > 0 && (always || !!(withHistory && withHistory.checked));
+  const file = history ? new File([historyText(rec.trip, priv, older)], historyName(rec.trip), {type: "application/json"})
     : new File([fileText(rec.trip, priv)], fileName(rec.trip), {type: "application/json"});
   if(!(await handOver(file, rec.trip.title))) return;
   const done = {...rec, exported: rec.trip.version.id, ...(priv ? {privUnsaved: false} : {})};
@@ -1810,7 +1813,6 @@ function tripMenu(id){
     onAcc && sh.role === "owner" && S.account && row("share-trip", t("share")),
     row("history", t("history"), n === 1 ? t("versionsOne") : t("versionsN", {n})),
     row("save", t("saveFile")),
-    row("save-history", t("saveHistory")),
     !r.public && owner && row("lock", t(isLocked(r) ? "unlock" : "lock")),
     sh && sh.gone && S.account && row("reup", t("putOnAccount"))
   ].filter(Boolean).join("");
@@ -3128,7 +3130,7 @@ function runAct(act){
   else if(a === "signin") accountSignIn();
   else if(a === "me") location.hash = "#me";
   else if(a === "remove") removeRecord(act.dataset.id);
-  else if(a === "save" || a === "save-history"){ const rec = S.records.find(r => r.id === act.dataset.id); if(rec) saveFile(rec, {history: a === "save-history"}); }
+  else if(a === "save"){ const rec = S.records.find(r => r.id === act.dataset.id); if(rec) saveFile(rec); }
   else if(a === "how-to-move") howToMove();
   else if(a === "history") showHistory(act.dataset.id);
   else if(a === "open"){

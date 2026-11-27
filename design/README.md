@@ -474,7 +474,8 @@ The list of trips (`#trips`): the open one first, larger; the others grouped by 
   synced, changes not in a file (a trip only on this phone), shared with you, published,
   locked, only on this phone. The version and where it is kept are in its sheet.
 - **TR3** The trip's sheet: where it is and its version under the title; what can be
-  done, a row each with its value (History · 14 versions); Save the file, and Save with
+  done, a row each with its value (History · 14 versions); Save the file asks, when there
+  is something to choose, with a box each, nothing ticked at first: my private expenses,
   its history (every version this phone has, for another phone without an account);
   Delete apart, last, asking.
 - **TR4** Grouped by when (under way, coming, past by year, of others); sorted and found
