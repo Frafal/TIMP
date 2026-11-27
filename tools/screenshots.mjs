@@ -67,7 +67,7 @@ await withApp(async ({run, until, theme, capture}) => {
   await until("day 1", `document.querySelectorAll(".stop").length === 6`);
   await run(`document.querySelector("[data-add-stop]").click();`);
   await until("the form", `document.querySelector("dialog.sheet[open]")`);
-  await run(`const el = document.getElementById("stop-title"); el.value = ${JSON.stringify(PLACE)}; el.dispatchEvent(new Event("change", {bubbles: true})); document.getElementById("stop-time").value = "12:15"; document.querySelector('[data-type="food"]').click(); document.querySelector('[data-travel="metro"]').click(); const tx = document.getElementById("stop-text"); tx.value = "Custard tarts at the counter, three minutes from the square."; tx.dispatchEvent(new Event("input", {bubbles: true}));`);
+  await run(`const el = document.getElementById("stop-title"); el.value = ${JSON.stringify(PLACE)}; el.dispatchEvent(new Event("change", {bubbles: true})); document.getElementById("stop-hh").value = "12"; document.getElementById("stop-mm").value = "15"; document.querySelector('[data-type="food"]').click(); document.querySelector('[data-travel="metro"]').click(); const tx = document.getElementById("stop-text"); tx.value = "Custard tarts at the counter, three minutes from the square."; tx.dispatchEvent(new Event("input", {bubbles: true}));`);
   await new Promise(r => setTimeout(r, 600)); // the small map's tiles
   await shoot("new-stop.png");
   await run(`document.querySelector(".sheet form").requestSubmit(); await new Promise(r => setTimeout(r, 400));`);

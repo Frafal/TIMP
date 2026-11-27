@@ -303,7 +303,9 @@ span.costbtn{cursor:auto}
 .sheet textarea{resize:vertical;min-height:72px;line-height:1.45}
 .sheet [data-time-mode]{justify-self:start;font-size:.82rem}
 /* the time: hour and minutes, two lists side by side */
-.sheet input[type="time"]{font:500 1rem var(--f-mono);font-variant-numeric:tabular-nums}
+.sheet .clock{display:flex;align-items:center;gap:4px;min-width:0}
+.sheet .clock select{flex:1 1 0;padding:10px 22px 10px 10px;background-position:right 5px center;background-size:12px;font:500 1rem var(--f-mono);font-variant-numeric:tabular-nums}
+.sheet .clock > span{font:600 1rem var(--f-mono);color:var(--muted)}
 .sheet #stop-title{resize:none;min-height:44px;line-height:1.4;overflow-y:auto}
 /* the map in the stop form, to put the pin by hand */
 .pickwrap{display:grid;gap:8px;min-width:0}

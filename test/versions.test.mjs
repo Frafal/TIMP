@@ -573,3 +573,27 @@ test("random pairs of edits: the join is the same on both phones, valid, and nev
   }
   assert.ok(n > 150);
 });
+
+import { historyText, keepHistory, olderVersions, isHistory, historyName } from "../js/trips.js";
+
+test("a file with its history: another phone gets every version before it; a version that is not what its id says, or of another trip, is left out", async () => {
+  const phoneA = memoryStore(), phoneB = memoryStore();
+  const {trip: root} = await prepare(demo());
+  await phoneA.put(root);
+  const v1 = (await saveEdit(phoneA, root, addStop(root, {date: DAY1}, {time: "12:15", title: "Gelato"}).trip)).trip;
+  const v2 = (await saveEdit(phoneA, v1, addStop(v1, {date: DAY2}, {time: "13:00", title: "Lunch"}).trip)).trip;
+  const older = await olderVersions(phoneA, v2);
+  assert.deepEqual(older.map(v => v.version.id), [v1.version.id, root.version.id], "newest first");
+  const data = JSON.parse(historyText(v2, null, older));
+  assert.ok(isHistory(data));
+  assert.equal(historyName(v2), fileName(v2).replace(".json", "-history.json"));
+  // Tampered with: a version whose content no longer is its id, and another trip's.
+  const forged = {...JSON.parse(JSON.stringify(v1)), title: "Changed by hand"};
+  const other = {...JSON.parse(JSON.stringify(root)), id: "another-trip"};
+  data.versions.push(forged, other);
+  const {trip, kept} = await keepHistory(phoneB, data);
+  assert.equal(kept, 2, "the two real ones");
+  assert.deepEqual((await phoneB.ids(v2.id)).sort(), [root.version.id, v1.version.id].sort());
+  assert.equal((await phoneB.get(v2.id, v1.version.id)).title, v1.title, "the forged one did not replace it");
+  assert.equal(trip.version.id, v2.version.id, "the trip, to load as any file");
+});

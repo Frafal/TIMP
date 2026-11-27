@@ -12,9 +12,13 @@ its own version: `travel-in-my-pocket/2` since 3.0. Files in `travel-in-my-pocke
 - **History on a new phone, or at the new address**: the versions this phone has not got
   come from your account, which keeps them all, checked against their ids and kept here
   for next time.
-- **A stop's time with the phone's own clock** (Android's dial, iPhone's wheels) instead of
-  two lists of hours and minutes, which 3.3.0 brought in because Chrome on Android put the
-  clock's Set button off narrow screens: to try again on Android.
+- **Save with its history** (a trip's sheet, and How to move at the old address): a file
+  with every version this phone has, for another phone or address without an account;
+  loaded as any file, each version kept only if it is what its id says
+  (`travel-in-my-pocket/history`, docs/trip-format.md).
+- **Quick taps on two alternatives**: the circle moves at once, the choices are saved one
+  after the other, and of quick taps the last one stays (the second was lost to the first
+  still being saved).
 - Copying the recovery codes copies them on iPhones too, right after Face ID; every copy in
   the app is one function now.
 - A group of alternatives with long names no longer makes the day wider than the screen.

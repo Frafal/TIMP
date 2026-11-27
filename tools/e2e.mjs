@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { withApp } from "./lib/browser.mjs";
-import { prepare } from "../js/trips.js";
+import { prepare, historyText } from "../js/trips.js";
 import { commit, relation, commonBase, commitMerge } from "../js/version.js";
 import { mergeTrips } from "../js/merge.js";
 import { addStop, addAlternative } from "../js/edit.js";
@@ -456,9 +456,11 @@ await withApp(async ({run, until, reload, blocked}) => {
     await fill("#stop-title", PLACE);
     assert.equal(await run(`return document.getElementById("stop-title").value;`), "Pastelaria Exemplo");
     assert.match(await run(`return document.querySelector("[data-pos]").textContent;`), /38\.71012, -9\.13751/);
-    // The time with the phone's own clock (Android's dial, iPhone's wheels).
-    assert.equal(await run(`return document.getElementById("stop-time").type;`), "time");
-    await fill("#stop-time", "12:15");
+    // The time from two lists, hour and minutes: Android's own clock dialog puts its Set
+    // button off narrow screens, and a page cannot change a dialog of the system.
+    assert.equal(await run(`return document.querySelector('input[type="time"]');`), null);
+    await fill("#stop-hh", "12");
+    await fill("#stop-mm", "15");
     await run(`document.querySelector('[data-travel="metro"]').click();`);
     await submit();
     assert.deepEqual((await stopTitles()).slice(2, 5), ["Miradouro de Santa Luzia", "Pastelaria Exemplo", "Castelo de São Jorge"]);
@@ -1334,6 +1336,26 @@ await withApp(async ({run, until, reload, blocked}) => {
     await until("the change applied", `await new Promise(r => { const q = indexedDB.open("travel-in-my-pocket"); q.onsuccess = () => { const g = q.result.transaction("trips").objectStore("trips").get("demo-lisbon"); g.onsuccess = () => r(g.result.trip.days[0].stops.some(s => s.tag === "Shared as a file")); }; })`);
     assert.equal(await run(`return location.search;`), "", "nothing left in the address");
     assert.equal(await run(`return (await caches.open("timp-share").then(c => c.match("shared"))) === undefined;`), true, "read once, then gone");
+  });
+
+  await step("a file with its history: pasted on a phone that never had the trip, its History has every version", async () => {
+    const file = JSON.parse(readFileSync(new URL("../examples/demo-trip.json", import.meta.url), "utf8"));
+    delete file.private;
+    const {trip: root} = await prepare({...file, id: "history-check", title: "History check"});
+    const v1 = await commit(addStop(root, {date: root.days[0].date}, {time: "18:00", title: "Added before"}).trip, root);
+    const v2 = await commit(addStop(v1, {date: root.days[0].date}, {time: "19:00", title: "Added last"}).trip, v1);
+    await run(`location.hash = "#trips"; await new Promise(r => setTimeout(r, 200)); document.querySelector('[data-act="paste-any"]').click(); await new Promise(r => setTimeout(r, 200));
+      document.querySelector("#paste-text").value = ${JSON.stringify(historyText(v2, null, [v1, root]))}; document.querySelector("#paste-text").closest("form").requestSubmit();`);
+    await until("the trip", `document.title.includes("History check")`, 15000);
+    await run(`location.hash = "#trips";`);
+    await until("its card", `document.querySelector('[data-act="trip-menu"][data-id="history-check"]')`);
+    await run(`${inSheet("history-check", "history")}.click();`);
+    await until("its history", `document.querySelectorAll("dialog.history .vid").length === 3`, 15000);
+    assert.equal(await run(`return document.querySelectorAll("dialog.history .away").length;`), 0, "nothing on other phones");
+    // As it was for the next steps: every sheet closed, the example the open trip again.
+    await run(`document.querySelectorAll("dialog[open]").forEach(d => d.close()); location.hash = "#trips";`);
+    await until("the example's card", `document.querySelector('[data-act="open"][data-id="demo-lisbon"]')`);
+    await run(`document.querySelector('[data-act="open"][data-id="demo-lisbon"]').click(); await new Promise(r => setTimeout(r, 300));`);
   });
 
   await step("deleting a trip asks first; Escape or Cancel keep it", async () => {
@@ -2574,7 +2596,7 @@ async function accountSteps({run, until, reload, page, blocked, service}){
     await until("the form", `document.querySelector("dialog.sheet[open] #stop-group")`);
     assert.equal(await run(`return document.querySelector("dialog.sheet[open] h2").textContent;`), "An alternative to Lunch in Alfama");
     assert.equal(await run(`return document.getElementById("stop-group").value;`), "Lunch", "a place to eat at 14:00: Lunch");
-    assert.equal(await run(`return document.getElementById("stop-time").value;`), "14:00", "its time");
+    assert.deepEqual(await run(`return [document.getElementById("stop-hh").value, document.getElementById("stop-mm").value];`), ["14", "00"], "its time");
     await run(`document.getElementById("stop-title").value = "Casa Exemplo"; document.querySelector("dialog.sheet[open] form").requestSubmit(); await new Promise(r => setTimeout(r, 400));`);
     await until("added", `/Lunch: Casa Exemplo added · version/.test(document.getElementById("toast").textContent)`);
     let trip = await tripNow();
@@ -2604,6 +2626,12 @@ async function accountSteps({run, until, reload, page, blocked, service}){
     await until("chosen again", `/Lunch: Lunch in Alfama chosen/.test(document.getElementById("toast").textContent)`);
     trip = await tripNow();
     assert.deepEqual(lunchOf(trip).filter(s => s.chosen).map(s => s.title), ["Lunch in Alfama"]);
+    // Two quick taps, the second before the first is saved: the second stays, its circle at once.
+    await run(`document.querySelector('[role="radio"][data-choose="${casa}"]').click(); document.querySelector('[role="radio"][data-choose="${lunch}"]').click();`);
+    assert.equal(await run(`return document.querySelector('[role="radio"][data-choose="${lunch}"]').getAttribute("aria-checked");`), "true", "the circle at once");
+    await new Promise(r => setTimeout(r, 1500));
+    assert.deepEqual(lunchOf(await tripNow()).filter(s => s.chosen).map(s => s.title), ["Lunch in Alfama"], "the last tap stays");
+    assert.equal(await run(`return document.querySelector('[role="radio"][data-choose="${lunch}"]').getAttribute("aria-checked");`), "true");
     await run(`document.querySelector(".gclose").click(); await new Promise(r => setTimeout(r, 100));`);
     await run(`document.querySelector('[data-tick="2027-05-14||${lunch}"]').click(); await new Promise(r => setTimeout(r, 100));`);
     assert.equal(await run(`return document.querySelector('[data-tick="2027-05-14||${lunch}"]').getAttribute("aria-pressed");`), "true", "and ticked");

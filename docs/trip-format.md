@@ -293,6 +293,19 @@ friend's trip can have the same one. A file that shares no version at all with t
 trip on the phone is most likely another trip: the app asks, and can keep it apart
 under a new id (`…-2`), or join the two if it is the same trip written again.
 
+### A trip with its history
+
+"Save with its history" writes a file of its own around the trip file, to carry every
+version to another phone or address without an account:
+
+```json
+{"format": "travel-in-my-pocket/history", "trip": { "…the trip file…": "" }, "versions": [ "…the earlier versions, newest first…" ]}
+```
+
+Each version is a whole trip file of its time. Loading it, the app keeps each version only
+if it is a valid trip of the same `id`, in the current format, whose version id is the
+hash of its content; then it loads `trip` as any file. Nobody writes one by hand.
+
 <!-- llms.txt: end -->
 ## Changes
 

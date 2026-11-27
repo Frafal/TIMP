@@ -19,7 +19,7 @@ import { addStop, updateStop, removeStop, addDay, updateDay, removeDay, swapDays
 import { tidyGroups } from "./choices.js";
 import { convert, monthsFor, formatMoney, formatRate, symbolOf, homeOf, currencies, currencyName } from "./money.js";
 import { keptRates, fetchMonth } from "./rates.js";
-import { prepare, saveEdit, inspect, apply, restore, moveMarks, followIds, rejoin, fileName, fileText, separate, joinChanges } from "./trips.js";
+import { prepare, saveEdit, inspect, apply, restore, moveMarks, followIds, rejoin, fileName, fileText, separate, joinChanges, isHistory, keepHistory, olderVersions, historyText, historyName } from "./trips.js";
 import { newOwner, splitPrivate, onLoad as privateOnLoad, join as joinPrivate, emptySet, withMarks, marksInto, mergePrivate, addPrivate, updatePrivate, removePrivate, atStop, setAtStop, followStops, unlinkStop, followIds as followIdsPrivate } from "./private.js";
 import { needsStopIds } from "./ids.js";
 import { openFindPositions } from "./positions.js";
@@ -417,6 +417,8 @@ async function importText(text, name, {demo = false, said = ""} = {}){
     render(); scrollToY(0); return;
   }
   if(isChanges(data)){ await importChanges(data); return; }
+  // A trip with its history: its versions kept first (each checked), then the trip as any file.
+  if(isHistory(data)) data = (await keepHistory(versions, data)).trip;
   data = upgrade(data);   // a file in the old format is converted, then checked
   // Its stops get ids of their own, and one copied with its id (an assistant that copied
   // a stop) another: the original is the one where the version it was made from has it.
@@ -798,6 +800,24 @@ const optionLabel = s => s ? [s.title, s.time ? timeText(s.time) : ""].filter(Bo
 // "Choose this" (design/README.md, P1–P2). A trip of mine only: the trip goes to this
 // option. Shared: asked, for everyone or only for me; read only or locked, only for me
 // at once. The group's own option again: my choice goes.
+// One choice at a time, each from the trip as the one before left it: a quick tap on
+// another option while the first is still being saved is never lost to it. The circle
+// moves at once (`picking`, option → the option picked in its group, until saved); of
+// several quick taps in a group, only the last is saved.
+const picking = new Map();
+let choosing = Promise.resolve();
+function pick(radio){
+  const id = radio.dataset.choose, ids = [...radio.closest('[role="radiogroup"]').querySelectorAll("[data-choose]")].map(r => r.dataset.choose);
+  for(const x of ids) picking.set(x, id);
+  for(const r of radio.closest('[role="radiogroup"]').querySelectorAll("[data-choose]")) r.setAttribute("aria-checked", String(r === radio));
+  choosing = choosing.then(async () => {
+    if(picking.get(id) !== id) return;
+    try{ await chooseHere(id); }
+    catch(e){ toast(String(e && e.message || e)); }
+    finally{ if(picking.get(id) === id){ for(const x of ids) picking.delete(x); render(); } }
+  });
+}
+
 async function chooseHere(id){
   const {ref, list} = hereList();
   const s = list.find(x => x.id === id), g = groupOf(s);
@@ -973,7 +993,9 @@ async function handOver(file, title){
 // A trip as a file, handed over; the version marked as saved. With private expenses,
 // the traveller says first whether they go in the file: kept for themselves, left out
 // for someone else.
-async function saveFile(rec){
+// `history`: with the versions before it that this phone has (another phone or address,
+// without an account, gets the whole history).
+async function saveFile(rec, {history = false} = {}){
   let priv = null;
   if(rec.priv && rec.priv.expenses.length){
     const answer = await ask({title: t("saveFile"), text: t("saveWhich", {n: rec.priv.expenses.length}),
@@ -981,7 +1003,8 @@ async function saveFile(rec){
     if(answer !== "with" && answer !== "without") return;
     if(answer === "with") priv = rec.priv;
   }
-  const file = new File([fileText(rec.trip, priv)], fileName(rec.trip), {type: "application/json"});
+  const file = history ? new File([historyText(rec.trip, priv, await olderVersions(versions, rec.trip))], historyName(rec.trip), {type: "application/json"})
+    : new File([fileText(rec.trip, priv)], fileName(rec.trip), {type: "application/json"});
   if(!(await handOver(file, rec.trip.title))) return;
   const done = {...rec, exported: rec.trip.version.id, ...(priv ? {privUnsaved: false} : {})};
   await keepRecord(done);
@@ -1325,13 +1348,13 @@ function howToMove(){
       <ol class="steps"><li>${esc(t("moveStep1", {u}))}</li><li>${esc(t("moveStep2"))}</li><li>${esc(t("moveStep3"))}</li></ol>
       <button type="button" class="btn primary" data-approve>${esc(t("moveApprove"))}</button>` : ""}
     ${only.length ? `<h3 class="trip-group">${esc(t("moveOnlyHere"))}</h3>
-      ${only.map(r => `<div class="chat"><span class="who"><b>${esc(r.trip.title)}</b><small>${esc(datesOf(r, lang))}</small></span><button type="button" class="tbtn" data-save="${esc(r.id)}">${esc(t("saveFile"))}</button></div>`).join("")}
+      ${only.map(r => `<div class="chat"><span class="who"><b>${esc(r.trip.title)}</b><small>${esc(datesOf(r, lang))}</small></span><button type="button" class="tbtn" data-save="${esc(r.id)}">${esc(t("saveHistory"))}</button></div>`).join("")}
       <p class="foot">${esc(t("moveLoadThere", {u}))}</p>` : ""}
     ${!S.account && !only.length ? `<p class="foot">${esc(t("moveNothing", {u}))}</p>` : ""}`});
   dlg.addEventListener("click", e => {
     if(e.target.closest("[data-approve]")) return openApprove({toast});
     const save = e.target.closest("[data-save]"), rec = save && S.records.find(r => r.id === save.dataset.save);
-    if(rec) saveFile(rec);
+    if(rec) saveFile(rec, {history: true});
   });
 }
 
@@ -1787,6 +1810,7 @@ function tripMenu(id){
     onAcc && sh.role === "owner" && S.account && row("share-trip", t("share")),
     row("history", t("history"), n === 1 ? t("versionsOne") : t("versionsN", {n})),
     row("save", t("saveFile")),
+    row("save-history", t("saveHistory")),
     !r.public && owner && row("lock", t(isLocked(r) ? "unlock" : "lock")),
     sh && sh.gone && S.account && row("reup", t("putOnAccount"))
   ].filter(Boolean).join("");
@@ -2467,7 +2491,7 @@ function stopsHTML(day, planId, list, parts, paint, all = list, now = {today: fa
     // Its options, a choice to make, each a stop of its own: a tap opens it like any stop,
     // only its circle chooses it (P1, R1), asking first on a shared trip (A9).
     const options_ = `<div class="opts" id="${gid}" role="radiogroup" aria-label="${esc(g)}">` + options.map(o =>
-      stopEl(o, -1, {group: g, choose: o === chosen, mark: mark(o) + (o.mine ? "" : whoCircles(at_(o))), goers: at_(o).join(", ")}, "div")).join("") + `</div>` + (change ? `<button type="button" class="addopt" data-alt-add="${esc(options[0].id)}">${esc(t("altAdd"))}</button>` : "");
+      stopEl(o, -1, {group: g, choose: picking.has(o.id) ? picking.get(o.id) === o.id : o === chosen, mark: mark(o) + (o.mine ? "" : whoCircles(at_(o))), goers: at_(o).join(", ")}, "div")).join("") + `</div>` + (change ? `<button type="button" class="addopt" data-alt-add="${esc(options[0].id)}">${esc(t("altAdd"))}</button>` : "");
     if(chosen && slot === now.next) html += nowMark();
     if(!chosen){
       // No choice yet: dashed, like everything not there yet (R15); the route and the
@@ -2894,7 +2918,7 @@ $app.addEventListener("click", e => {
     return;
   }
   const choose = e.target.closest("[data-choose]");
-  if(choose){ chooseHere(choose.dataset.choose); return; }
+  if(choose){ pick(choose); return; }
   const altAdd = e.target.closest("[data-alt-add]");
   if(altAdd){ S.menuFor = null; render(); addAlternativeHere(altAdd.dataset.altAdd); return; }
   const planAll = e.target.closest("[data-plan-choose]");
@@ -3104,7 +3128,7 @@ function runAct(act){
   else if(a === "signin") accountSignIn();
   else if(a === "me") location.hash = "#me";
   else if(a === "remove") removeRecord(act.dataset.id);
-  else if(a === "save"){ const rec = S.records.find(r => r.id === act.dataset.id); if(rec) saveFile(rec); }
+  else if(a === "save" || a === "save-history"){ const rec = S.records.find(r => r.id === act.dataset.id); if(rec) saveFile(rec, {history: a === "save-history"}); }
   else if(a === "how-to-move") howToMove();
   else if(a === "history") showHistory(act.dataset.id);
   else if(a === "open"){
