@@ -170,12 +170,13 @@ order, error. The accent belongs to none of the palettes.
 ## Alternatives: for everyone or only for me
 
 A group of alternatives is one card: the option chosen, "+N" and the others' names;
-opened, the options as a choice. A shared trip has two layers, never more: the group's
+opened, every option a stop of its own, its circle in place of the number. A shared trip has two layers, never more: the group's
 plan, in the trip, and mine, only where I differ, on all my phones and nobody else's.
 
-- **P1** The option is the action; a question gives its reach. On a shared trip a tap
-  asks: Cancel · Only for me · For everyone, the safe answer first. No second row of
-  buttons on every option.
+- **P1** An option's circle chooses it; a question gives its reach. On a shared trip it
+  asks: Cancel · Only for me · For everyone, the safe answer first. A tap on the option
+  opens it like any stop (R1): its signals, description, cost, Map and Directions, Edit;
+  never Skip, it is not in the day. Who goes there under its name (G2).
 - **P2** No question when there is one answer: a trip of mine only, the trip changes;
   read only or locked, only for me at once, said with Undo; the group's own option
   again, back to it; my own again, nothing.
@@ -305,7 +306,9 @@ Adding a stop and changing one: the same sheet (`js/editor.js`).
   position, kind): the map closes and only it stays; its box again brings the others
   back. The name on the sign is small and optional, under the field.
 - **ST2** When: the trip's days as chips, "+" last for a new day; the time as hours and
-  minutes or a part of the day (a choice of two, T1); a day with plans, its plan. A row of
+  minutes, two lists (Android's own clock dialog puts its Set button off narrow screens,
+  and a page cannot change a dialog of the system; tried again on 27 November 2026) or a
+  part of the day (a choice of two, T1); a day with plans, its plan. A row of
   chips wider than the sheet fades at the edge it goes on past, never cut clean.
 - **ST3** The rest, a row each with its value ("+" when empty), opened in place, one at a
   time: kind, how you get there, booking, cost, closed on, description, position; Delete
@@ -437,7 +440,7 @@ A phone joins an account with a code it shows, approved on a device already sign
   once, clearly: a card (`.moved`) at the top of Trips and Welcome, with Open (the new
   address, in the browser) and How to move.
 - **MO2** How to move fits this phone: with an account, three steps and Approve the new app
-  (LK2); each trip only on this phone, with Save the file, to load there.
+  (LK2); each trip only on this phone, with Save with its history, to load there.
 - **MO3** The old address stays one month (until 26 December 2026), the whole app with the
   card.
 
@@ -471,7 +474,10 @@ The list of trips (`#trips`): the open one first, larger; the others grouped by 
   synced, changes not in a file (a trip only on this phone), shared with you, published,
   locked, only on this phone. The version and where it is kept are in its sheet.
 - **TR3** The trip's sheet: where it is and its version under the title; what can be
-  done, a row each with its value (History · 14 versions); Delete apart, last, asking.
+  done, a row each with its value (History · 14 versions); Save the file asks, when there
+  is something to choose, with a box each, nothing ticked at first: my private expenses,
+  its history (every version this phone has, for another phone without an account);
+  Delete apart, last, asking.
 - **TR4** Grouped by when (under way, coming, past by year, of others); sorted and found
   when there are many.
 - **TR5** Adding: "Load a file" the main action, Paste beside it (anything: a trip,

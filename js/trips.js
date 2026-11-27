@@ -4,7 +4,7 @@
 //
 // versions: {put(trip), get(tripId, id), ids(tripId)} — see versionStore in js/objects.js
 
-import { validateTrip, upgrade } from "./trip.js";
+import { validateTrip, upgrade, FORMAT } from "./trip.js";
 import { ensureIds } from "./edit.js";
 import { findStopId, needsStopIds } from "./ids.js";
 import { ensureVersion, childOf, commit, commitMerge, relation, commonBase, isIntact, unrelated, canonical, contentOf } from "./version.js";
@@ -184,4 +184,42 @@ export function fileName(trip){
  */
 export function fileText(trip, priv = null){
   return JSON.stringify(withPrivate(trip, priv), null, 1) + "\n";
+}
+
+/*
+ * A trip with its history: the file as above, and the versions before it that this phone
+ * has, to carry the whole history to another phone or address without an account. A
+ * format of its own around the trip file, which stays as it is.
+ */
+export const HISTORY = "travel-in-my-pocket/history";
+export const isHistory = data => !!data && typeof data === "object" && data.format === HISTORY;
+
+/** The versions this phone has before the trip's own, newest first. */
+export async function olderVersions(versions, trip){
+  const here = new Set(await versions.ids(trip.id));
+  const out = [];
+  for(const id of trip.version.history) if(here.has(id)){ const v = await versions.get(trip.id, id); if(v) out.push(v); }
+  return out;
+}
+
+/** The file of a trip with its history (`older`, from olderVersions). */
+export function historyText(trip, priv, older){
+  return JSON.stringify({format: HISTORY, trip: withPrivate(trip, priv), versions: older}, null, 1) + "\n";
+}
+export const historyName = trip => fileName(trip).replace(/\.json$/, "-history.json");
+
+/**
+ * The versions of a history file kept here, each only if it is a valid trip of the same
+ * id, in the current format, whose id is the hash of its content: a file cannot slip
+ * another trip into a history. The trip file inside, to load as any file; how many kept.
+ */
+export async function keepHistory(versions, data){
+  const trip = data.trip;
+  let kept = 0;
+  for(const v of Array.isArray(data.versions) ? data.versions : []){
+    if(!v || !trip || v.id !== trip.id || v.format !== FORMAT || !validateTrip(v).ok || !(await isIntact(v))) continue;
+    await versions.put(v);
+    kept++;
+  }
+  return {trip, kept};
 }

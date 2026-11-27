@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { withApp } from "./lib/browser.mjs";
-import { prepare } from "../js/trips.js";
+import { prepare, historyText } from "../js/trips.js";
 import { commit, relation, commonBase, commitMerge } from "../js/version.js";
 import { mergeTrips } from "../js/merge.js";
 import { addStop, addAlternative } from "../js/edit.js";
@@ -16,6 +16,10 @@ import { splitPrivate } from "../js/private.js";
 import { publishable } from "../js/publish.js";
 import { TERMS } from "../js/share-api.js";
 import { oldStopId } from "../js/ids.js";
+// What the app copied, whichever way it copies (js/sheet.js copyText): a field selected
+// and copied, or the Clipboard API.
+const STUB_COPY = `window.__copied = null; navigator.clipboard.writeText = async t => { window.__copied = t; };
+  document.execCommand = c => { if(c !== "copy") return false; window.__copied = document.activeElement.value; return true; };`;
 
 // A stop of the example once loaded, by the id the file gives it: the id it becomes
 // (js/ids.js). Changes files below still name stops by those, as an outline from before.
@@ -35,6 +39,9 @@ async function atOnce(run, tap, what){
 // `id` null: the open trip's.
 const tripSheet = id => `(document.querySelector('${id ? `[data-act="trip-menu"][data-id="${id}"]` : `.active-trip [data-act="trip-menu"]`}').click(), document.querySelector("dialog.tripmenu[open]"))`;
 const inSheet = (id, act) => `${tripSheet(id)}.querySelector('[data-act="${act}"]')`;
+// Save the file's question: the boxes whose label starts with one of `ticks` ticked, then Save.
+const saveAnswer = (...ticks) => `document.querySelectorAll("dialog.ask .ask-check").forEach(l => { l.querySelector("input").checked = ${JSON.stringify(ticks)}.some(x => l.textContent.startsWith(x)); });
+  document.querySelector('dialog.ask [data-answer="save"]').click(); await new Promise(r => setTimeout(r, 600));`;
 // What a trip's sheet says (`sel`'s text, null without it), the sheet closed again.
 const sheetSays = (id, sel) => `const d = ${tripSheet(id)}, e = d.querySelector('${sel}'), v = e ? e.textContent : null; d.close(); return v;`;
 
@@ -452,7 +459,8 @@ await withApp(async ({run, until, reload, blocked}) => {
     await fill("#stop-title", PLACE);
     assert.equal(await run(`return document.getElementById("stop-title").value;`), "Pastelaria Exemplo");
     assert.match(await run(`return document.querySelector("[data-pos]").textContent;`), /38\.71012, -9\.13751/);
-    // The time from two lists, hour and minutes (no clock of the phone's own).
+    // The time from two lists, hour and minutes: Android's own clock dialog puts its Set
+    // button off narrow screens, and a page cannot change a dialog of the system.
     assert.equal(await run(`return document.querySelector('input[type="time"]');`), null);
     await fill("#stop-hh", "12");
     await fill("#stop-mm", "15");
@@ -599,8 +607,10 @@ await withApp(async ({run, until, reload, blocked}) => {
     await run(`${inSheet("demo-lisbon", "save")}.click();`);
     // The example's private expenses came with it: the app asks whether they go in the file.
     await until("the question", `document.querySelector("dialog.ask[open]")`);
-    assert.deepEqual(await run(`return [...document.querySelectorAll("dialog.ask [data-answer]")].map(b => b.textContent);`), ["Cancel", "Without", "With private expenses"]);
-    await answer("with");
+    assert.deepEqual(await run(`return [...document.querySelectorAll("dialog.ask [data-answer]")].map(b => b.textContent);`), ["Cancel", "Save"]);
+    assert.deepEqual(await run(`return [...document.querySelectorAll("dialog.ask .ask-check")].map(l => [l.textContent.split(":")[0], l.querySelector("input").checked]);`),
+      [["My private expenses (2)", false], ["Its history (4 earlier versions)", false]], "a box each, nothing ticked at first");
+    await run(saveAnswer("My private expenses"));
     assert.equal(await run(`return window.__files.length;`), 1, "refused by the share sheet, the file is downloaded instead");
     saved = JSON.parse(await run(`return await window.__files[0].text();`));
     assert.deepEqual(saved.private.expenses.map(x => x.cost), [24, 18]);
@@ -801,7 +811,7 @@ await withApp(async ({run, until, reload, blocked}) => {
     const tap = act => run(`document.querySelector("dialog.assistant[open] .ai-pane:not(.off) [data-act='${act}']").click(); await new Promise(r => setTimeout(r, 100));`);
     const height = () => run(`return Math.round(document.querySelector("dialog.assistant[open]").getBoundingClientRect().height);`);
     await assistant();
-    await run(`window.__copied = null; navigator.clipboard.writeText = async t => { window.__copied = t; };`);
+    await run(STUB_COPY);
     await tap("copy-prompt");
     const message = await run(`return window.__copied;`);
     assert.match(message, /^Read http:\/\/\S+\/llms\.txt and follow it exactly:/, "the page of the format on this site");
@@ -848,7 +858,7 @@ await withApp(async ({run, until, reload, blocked}) => {
     await tap("clear-draft");
     await new Promise(r => setTimeout(r, 600));
     await run(`document.querySelector("dialog.assistant[open]").close();`);
-    await run(`window.__copied = null; navigator.clipboard.writeText = async t => { window.__copied = t; };`);
+    await run(STUB_COPY);
     assert.match(edit, /travel-in-my-pocket\/changes/, "how to write changes");
     assert.match(edit, /\nTrip ".*", id [a-z0-9-]+, version [0-9a-f]{16}, \d+ days?\./, "the outline of the open trip");
     assert.ok(!edit.includes('"text":'), "not the whole file");
@@ -860,7 +870,7 @@ await withApp(async ({run, until, reload, blocked}) => {
     await until("the problems", `document.querySelector(".errbox [data-act='copy-errors']")`);
     const items = await run(`return [...document.querySelectorAll(".errbox li")].map(li => li.textContent);`);
     assert.ok(items.some(x => x.startsWith("format:")) && items.some(x => x.startsWith("days[0].stops[0].title:")), items.join(" | "));
-    await run(`window.__copied = null; navigator.clipboard.writeText = async t => { window.__copied = t; };`);
+    await run(STUB_COPY);
     await run(`document.querySelector("[data-act='copy-errors']").click(); await new Promise(r => setTimeout(r, 100));`);
     const copied = await run(`return window.__copied;`);
     assert.match(copied, /following the TIMP format/);
@@ -897,7 +907,7 @@ await withApp(async ({run, until, reload, blocked}) => {
     // assistant asked for the whole trip, compact.
     await paste(JSON.stringify({...wrong, trip: "gone-trip"}));
     assert.equal(await text("#app .errbox b"), "These changes are for a trip that is not on this phone");
-    await run(`window.__copied = null; navigator.clipboard.writeText = async t => { window.__copied = t; }; document.querySelector('[data-act="copy-errors"]').click(); await new Promise(r => setTimeout(r, 100));`);
+    await run(`${STUB_COPY} document.querySelector('[data-act="copy-errors"]').click(); await new Promise(r => setTimeout(r, 100));`);
     assert.match(await run(`return window.__copied;`), /^The trip “gone-trip” is no longer on my phone\. Give me the whole trip file in the TIMP format, .* minified on a single line, then tell me it is ready to paste into TIMP\.$/);
     const right = {format: "travel-in-my-pocket/changes", trip: "demo-lisbon", changes: [
       {add: {day: "2027-05-14", stop: {time: "16:00", title: "Ginjinha bar", type: "food", lat: 38.7139, lng: -9.1375}}},
@@ -1294,17 +1304,26 @@ await withApp(async ({run, until, reload, blocked}) => {
     await run(`navigator.canShare = () => false;`);
     await run(`${inSheet("demo-lisbon", "save")}.click();`);
     await until("the question", `document.querySelector("dialog.ask[open]")`);
-    await answer("without");
+    await run(saveAnswer());
     const without = JSON.parse(await run(`return await window.__files[0].text();`));
     assert.equal(without.private, undefined);
     assert.equal(await run(`return !!document.querySelector(".tripcard [data-unsaved]");`), true, "the private ones are not saved yet");
     await run(`${inSheet("demo-lisbon", "save")}.click();`);
     await until("the question", `document.querySelector("dialog.ask[open]")`);
-    await answer("with");
+    await run(saveAnswer("My private expenses"));
     const withThem = JSON.parse(await run(`return await window.__files[1].text();`));
     assert.equal(withThem.version.id, without.version.id, "the same version, with or without them");
     assert.deepEqual([withThem.private.owner, withThem.private.expenses.length], [owner, 3]);
     assert.equal(await run(`return !!document.querySelector(".tripcard [data-unsaved]");`), false);
+    // With its history too: a file around the trip, with every version this phone has.
+    await run(`${inSheet("demo-lisbon", "save")}.click();`);
+    await until("the question", `document.querySelector("dialog.ask[open]")`);
+    await run(saveAnswer("My private expenses", "Its history"));
+    const withAll = JSON.parse(await run(`return await window.__files[2].text();`));
+    assert.equal(withAll.format, "travel-in-my-pocket/history");
+    assert.equal(withAll.trip.version.id, without.version.id);
+    assert.ok(withAll.versions.length > 0 && withAll.versions.every(v => v.id === "demo-lisbon"), "its earlier versions");
+    assert.equal(withAll.trip.private.expenses.length, 3);
     // Someone else's file: their private expenses stay out, this phone's are never mixed with them.
     await sendFile({...withThem, private: {owner: "p-bbbbbbbbbbbb", expenses: [{title: "A watch", cost: 900}]}});
     assert.match(await toastText(), /someone else's: left out/);
@@ -1331,6 +1350,26 @@ await withApp(async ({run, until, reload, blocked}) => {
     await until("the change applied", `await new Promise(r => { const q = indexedDB.open("travel-in-my-pocket"); q.onsuccess = () => { const g = q.result.transaction("trips").objectStore("trips").get("demo-lisbon"); g.onsuccess = () => r(g.result.trip.days[0].stops.some(s => s.tag === "Shared as a file")); }; })`);
     assert.equal(await run(`return location.search;`), "", "nothing left in the address");
     assert.equal(await run(`return (await caches.open("timp-share").then(c => c.match("shared"))) === undefined;`), true, "read once, then gone");
+  });
+
+  await step("a file with its history: pasted on a phone that never had the trip, its History has every version", async () => {
+    const file = JSON.parse(readFileSync(new URL("../examples/demo-trip.json", import.meta.url), "utf8"));
+    delete file.private;
+    const {trip: root} = await prepare({...file, id: "history-check", title: "History check"});
+    const v1 = await commit(addStop(root, {date: root.days[0].date}, {time: "18:00", title: "Added before"}).trip, root);
+    const v2 = await commit(addStop(v1, {date: root.days[0].date}, {time: "19:00", title: "Added last"}).trip, v1);
+    await run(`location.hash = "#trips"; await new Promise(r => setTimeout(r, 200)); document.querySelector('[data-act="paste-any"]').click(); await new Promise(r => setTimeout(r, 200));
+      document.querySelector("#paste-text").value = ${JSON.stringify(historyText(v2, null, [v1, root]))}; document.querySelector("#paste-text").closest("form").requestSubmit();`);
+    await until("the trip", `document.title.includes("History check")`, 15000);
+    await run(`location.hash = "#trips";`);
+    await until("its card", `document.querySelector('[data-act="trip-menu"][data-id="history-check"]')`);
+    await run(`${inSheet("history-check", "history")}.click();`);
+    await until("its history", `document.querySelectorAll("dialog.history .vid").length === 3`, 15000);
+    assert.equal(await run(`return document.querySelectorAll("dialog.history .away").length;`), 0, "nothing on other phones");
+    // As it was for the next steps: every sheet closed, the example the open trip again.
+    await run(`document.querySelectorAll("dialog[open]").forEach(d => d.close()); location.hash = "#trips";`);
+    await until("the example's card", `document.querySelector('[data-act="open"][data-id="demo-lisbon"]')`);
+    await run(`document.querySelector('[data-act="open"][data-id="demo-lisbon"]').click(); await new Promise(r => setTimeout(r, 300));`);
   });
 
   await step("deleting a trip asks first; Escape or Cancel keep it", async () => {
@@ -1895,11 +1934,13 @@ async function accountSteps({run, until, reload, page, blocked, service}){
     assert.equal(service.trips.size, 1, "the trip went up");
     for(let i = 0; i < 50 && !service.privs.size; i++) await new Promise(r => setTimeout(r, 200));
     assert.deepEqual([...service.privs.values()][0].data.expenses.map(x => x.cost), [24, 18], "and its private expenses, for this account only");
-    // Another phone of the same account adds a stop.
+    // Another phone of the same account adds a stop, then another.
     const t = [...service.trips.values()][0], head = t.versions.get(t.head);
     const other = await commit(addStop(head, {date: "2027-05-14"}, {time: "22:00", title: "Added on the other phone"}).trip, head);
+    const later = await commit(addStop(other, {date: "2027-05-14"}, {time: "22:30", title: "Then a second one"}).trip, other);
     t.versions.set(other.version.id, other);
-    t.head = other.version.id;
+    t.versions.set(later.version.id, later);
+    t.head = later.version.id;
     await run(`location.hash = "#trips";`);
     await until("synced", `document.querySelector('[data-sync="ok"]')`, 15000);
     assert.equal(await run(sheetSays("demo-lisbon", ".where")), "On your account");
@@ -1909,6 +1950,13 @@ async function accountSteps({run, until, reload, page, blocked, service}){
     await run(`location.hash = "#trips";`);
     await until("synced again", `document.querySelector('[data-sync="ok"]')`, 15000);
     assert.equal(await run(`return !!document.querySelector(".tripcard [data-unsaved]");`), false, "on the account: no file needed to keep it");
+    // Its history: the version between, never on this phone, comes from the account.
+    service.calls.length = 0;
+    await run(`${inSheet("demo-lisbon", "history")}.click();`);
+    await until("the version between", `[...document.querySelectorAll("dialog.history .vid")].some(c => c.textContent === ${JSON.stringify(other.version.id.slice(0, 7))})`, 15000);
+    assert.equal(await run(`return document.querySelectorAll("dialog.history .away").length;`), 0, "nothing on other phones");
+    assert.ok(service.calls.includes(`GET /v1/trips/${t.id}/versions/${other.version.id}`), "asked of the account");
+    await run(`document.querySelector("dialog.history [data-close]").click();`);
     assert.deepEqual(blocked(), []);
   });
 
@@ -2141,11 +2189,11 @@ async function accountSteps({run, until, reload, page, blocked, service}){
     const head = service.trips.get("t-ugo").head, mine = () => (service.privs.get("fra|t-ugo") || {data: null}).data;
     await run(`document.querySelector(".alts-line").click();`);
     await until("the options", `document.querySelector('.opts [role="radio"]')`);
-    const casa = await run(`return [...document.querySelectorAll('.opts [role="radio"]')].find(b => b.textContent.includes("Casa Exemplo")).dataset.choose;`);
+    const casa = await run(`return [...document.querySelectorAll('.opts > .stop')].find(o => o.querySelector(".tt").textContent.includes("Casa Exemplo")).querySelector('[role="radio"]').dataset.choose;`);
     await run(`document.querySelector('[data-choose="${casa}"]').click();`);
     await until("chosen for me", `/Lunch: Casa Exemplo, only for you/.test(document.getElementById("toast").textContent)`);
     assert.equal(await run(`return document.querySelector("dialog.ask[open]");`), null, "nothing asked: read only has one answer");
-    assert.deepEqual(await run(`return [...document.querySelectorAll('.opts [role="radio"]')].map(b => [b.querySelector("b").textContent, b.getAttribute("aria-checked")]).sort();`),
+    assert.deepEqual(await run(`return [...document.querySelectorAll('.opts > .stop')].map(o => [o.querySelector(".tt").textContent, o.querySelector('[role="radio"]').getAttribute("aria-checked")]).sort();`),
       [["Casa ExemploFOnly you", "true"], ["Lunch in AlfamaThe group's", "false"]]);
     await run(`document.querySelector(".gclose").click(); await new Promise(r => setTimeout(r, 100));`);
     assert.equal(await text(".group .gh"), "LunchFOnly you");
@@ -2159,7 +2207,7 @@ async function accountSteps({run, until, reload, page, blocked, service}){
     // The group's own again, opened: my choice goes, without a question.
     await run(`document.querySelector(".alts-line").click();`);
     await until("the options", `document.querySelector('.opts [role="radio"]')`);
-    await run(`[...document.querySelectorAll('.opts [role="radio"]')].find(b => b.textContent.includes("Alfama")).click(); await new Promise(r => setTimeout(r, 200));`);
+    await run(`[...document.querySelectorAll('.opts > .stop')].find(o => o.querySelector(".tt").textContent.includes("Alfama")).querySelector('[role="radio"]').click(); await new Promise(r => setTimeout(r, 200));`);
     assert.equal(await run(`return document.querySelector(".you");`), null);
     // My own trip, shared with ugo who can edit: asked, for everyone or only for me.
     const [id, t] = [...service.trips].find(([, x]) => x.localId === "demo-lisbon");
@@ -2176,8 +2224,8 @@ async function accountSteps({run, until, reload, page, blocked, service}){
     await run(`document.querySelector('[data-act="sync"]').click();`);
     await run(`location.hash = "#day-1";`);
     // Its lunch, open as Ugo's was (the same day and group).
-    await until("its lunch", `document.title.includes("Lisbon") && [...document.querySelectorAll('.opts [role="radio"]')].some(b => b.textContent.includes("Casa"))`, 15000);
-    await run(`[...document.querySelectorAll('.opts [role="radio"]')].find(b => b.textContent.includes("Casa")).click();`);
+    await until("its lunch", `document.title.includes("Lisbon") && [...document.querySelectorAll('.opts > .stop')].some(o => o.querySelector(".tt").textContent.includes("Casa"))`, 15000);
+    await run(`[...document.querySelectorAll('.opts > .stop')].find(o => o.querySelector(".tt").textContent.includes("Casa")).querySelector('[role="radio"]').click();`);
     await until("asked", `document.querySelector("dialog.ask[open]")`);
     assert.equal(await text("dialog.ask[open] h2"), "Lunch: Casa Exemplo?");
     assert.deepEqual(await run(`return [...document.querySelectorAll("dialog.ask[open] [data-answer]")].map(b => b.textContent);`), ["Cancel", "Only for me", "For everyone"]);
@@ -2186,10 +2234,10 @@ async function accountSteps({run, until, reload, page, blocked, service}){
     await until("mine", `/Lunch: Casa Exemplo, only for you/.test(document.getElementById("toast").textContent)`);
     assert.equal(t.head, next.version.id, "no new version");
     // Then for everyone: a new version, and my difference gone.
-    await run(`[...document.querySelectorAll('.opts [role="radio"]')].find(b => b.textContent.includes("Casa")).click(); await new Promise(r => setTimeout(r, 300));`);
+    await run(`[...document.querySelectorAll('.opts > .stop')].find(o => o.querySelector(".tt").textContent.includes("Casa")).querySelector('[role="radio"]').click(); await new Promise(r => setTimeout(r, 300));`);
     assert.equal(await run(`return document.querySelector("dialog.ask[open]");`), null, "mine already: nothing to choose");
-    await run(`[...document.querySelectorAll('.opts [role="radio"]')].find(b => b.textContent.includes("Alfama")).click(); await new Promise(r => setTimeout(r, 200));`);
-    await run(`[...document.querySelectorAll('.opts [role="radio"]')].find(b => b.textContent.includes("Casa")).click();`);
+    await run(`[...document.querySelectorAll('.opts > .stop')].find(o => o.querySelector(".tt").textContent.includes("Alfama")).querySelector('[role="radio"]').click(); await new Promise(r => setTimeout(r, 200));`);
+    await run(`[...document.querySelectorAll('.opts > .stop')].find(o => o.querySelector(".tt").textContent.includes("Casa")).querySelector('[role="radio"]').click();`);
     await until("asked", `document.querySelector("dialog.ask[open]")`);
     await run(`document.querySelector('dialog.ask[open] [data-answer="all"]').click();`);
     await until("for everyone", `/Lunch: Casa Exemplo chosen · version/.test(document.getElementById("toast").textContent)`);
@@ -2228,8 +2276,8 @@ async function accountSteps({run, until, reload, page, blocked, service}){
     assert.match(await run(`return document.querySelector('[data-tick="${key(first)}"]').getAttribute("aria-label");`), /, by ugo$/);
     // Opened: ugo's circle beside his option, his name in its line (G7); closed: where he goes.
     if(!(await run(`return !!document.querySelector(".group.open");`))) await run(`document.querySelector(".alts-line").click(); await new Promise(r => setTimeout(r, 100));`);
-    assert.equal(await run(`return document.querySelector('[data-choose="${casa}"] .who').getAttribute("aria-label");`), "ugo");
-    assert.match(await run(`return document.querySelector('[data-choose="${casa}"] small').textContent;`), /ugo$/);
+    assert.equal(await run(`return document.querySelector('[data-choose="${casa}"]').closest(".stop").querySelector(".who").getAttribute("aria-label");`), "ugo");
+    assert.match(await run(`return document.querySelector('[data-choose="${casa}"]').closest(".stop").querySelector(".by").textContent;`), /ugo$/);
     await run(`document.querySelector(".gclose").click(); await new Promise(r => setTimeout(r, 100));`);
     assert.equal(await run(`return [...document.querySelectorAll(".group .theirs")].map(p => p.textContent).join();`), "Elsewhere: ugo", "where ugo goes (G2)");
     // Mine: to the group, with my name (none under it, here).
@@ -2358,6 +2406,12 @@ async function accountSteps({run, until, reload, page, blocked, service}){
     await until("new codes", `document.querySelector("dialog.sheet[open] [data-codes] textarea").value.split("\\n")[0] !== ${JSON.stringify(first[0])}`);
     const codes = (await run(`return document.querySelector("dialog.sheet[open] [data-codes] textarea").value;`)).split("\n");
     assert.equal(service.recovery.has(first[0]), false);
+    // Copied: every code, with what they are for.
+    await run(STUB_COPY);
+    await run(`document.querySelector("dialog.sheet[open] [data-copy-codes]").click();`);
+    await until("copied", `/^Codes copied/.test(document.getElementById("toast").textContent)`);
+    const copied = await run(`return window.__copied;`);
+    assert.ok(codes.every(c => copied.includes(c)) && /^TIMP: recovery codes of @fra/.test(copied), "every code copied");
     await run(`document.querySelector("dialog.sheet[open] [data-close]").click();`);
     // Signed out, and the phone's passkeys lost.
     service.sessions.set("tok-old-tablet", "fra");
@@ -2570,7 +2624,11 @@ async function accountSteps({run, until, reload, page, blocked, service}){
     // Opened: every option, a choice to make (a trip of this phone only: nothing asked).
     await run(`document.querySelector(".alts-line").click();`);
     await until("opened", `document.querySelector('.opts[role="radiogroup"] [data-choose]')`);
-    assert.deepEqual(await run(`return [...document.querySelectorAll('.opts [role="radio"]')].map(b => [b.querySelector("b").textContent, b.getAttribute("aria-checked")]);`), [["Lunch in Alfama", "true"], ["Casa Exemplo", "false"]]);
+    assert.deepEqual(await run(`return [...document.querySelectorAll('.opts > .stop')].map(o => [o.querySelector(".tt").textContent, o.querySelector('[role="radio"]').getAttribute("aria-checked")]);`), [["Lunch in Alfama", "true"], ["Casa Exemplo", "false"]]);
+    // A tap on an option opens it like any stop; only its circle chooses it (P1).
+    await run(`[...document.querySelectorAll('.opts > .stop')].find(o => o.querySelector(".tt").textContent.includes("Casa Exemplo")).querySelector(".tt .tap").click();`);
+    await until("opened like a stop", `[...document.querySelectorAll('.opts > .stop.open')].some(o => o.textContent.includes("Casa Exemplo") && o.querySelector(".xpand"))`);
+    assert.deepEqual(lunchOf(await tripNow()).filter(s => s.chosen).map(s => s.title), ["Lunch in Alfama"], "opening it chose nothing");
     const casa = lunchOf(trip).find(s => s.title === "Casa Exemplo").id;
     await run(`document.querySelector('[data-choose="${casa}"]').click();`);
     await until("chosen", `/Lunch: Casa Exemplo chosen · version/.test(document.getElementById("toast").textContent)`);
@@ -2582,6 +2640,12 @@ async function accountSteps({run, until, reload, page, blocked, service}){
     await until("chosen again", `/Lunch: Lunch in Alfama chosen/.test(document.getElementById("toast").textContent)`);
     trip = await tripNow();
     assert.deepEqual(lunchOf(trip).filter(s => s.chosen).map(s => s.title), ["Lunch in Alfama"]);
+    // Two quick taps, the second before the first is saved: the second stays, its circle at once.
+    await run(`document.querySelector('[role="radio"][data-choose="${casa}"]').click(); document.querySelector('[role="radio"][data-choose="${lunch}"]').click();`);
+    assert.equal(await run(`return document.querySelector('[role="radio"][data-choose="${lunch}"]').getAttribute("aria-checked");`), "true", "the circle at once");
+    await new Promise(r => setTimeout(r, 1500));
+    assert.deepEqual(lunchOf(await tripNow()).filter(s => s.chosen).map(s => s.title), ["Lunch in Alfama"], "the last tap stays");
+    assert.equal(await run(`return document.querySelector('[role="radio"][data-choose="${lunch}"]').getAttribute("aria-checked");`), "true");
     await run(`document.querySelector(".gclose").click(); await new Promise(r => setTimeout(r, 100));`);
     await run(`document.querySelector('[data-tick="2027-05-14||${lunch}"]').click(); await new Promise(r => setTimeout(r, 100));`);
     assert.equal(await run(`return document.querySelector('[data-tick="2027-05-14||${lunch}"]').getAttribute("aria-pressed");`), "true", "and ticked");

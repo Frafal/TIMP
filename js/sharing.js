@@ -5,7 +5,7 @@
 
 import { t, getLang } from "./i18n.js";
 import { esc } from "./util.js";
-import { openSheet } from "./sheet.js";
+import { openSheet, copyText } from "./sheet.js";
 import { ask } from "./ask.js";
 import { createInvite, pendingInvites, revokeInvite, tripMembers, leaveTrip, inviteLink, pageUrl, unpublishTrip } from "./share.js";
 import { accountError } from "./account.js";
@@ -19,6 +19,8 @@ import { shortId } from "./version.js";
  *   onPublication(p) the trip's page changed: the publication, or null once withdrawn
  */
 export async function openShareSheet({rec, toast, onPublication = () => {}}){
+  // A link copied, or its field selected to copy by hand.
+  const copied = async field => { if(await copyText(field.value)) toast(t("linkCopied")); else field.select(); };
   const id = rec.share.id;
   const dlg = openSheet({id: "share-title", title: t("shareTitle", {t: rec.trip.title}), cls: "tall", body: `
     <section><h3 class="sheet-h">${esc(t("whoSees"))}</h3><div class="people" data-people aria-busy="true"><p class="foot">…</p></div></section>
@@ -79,19 +81,17 @@ export async function openShareSheet({rec, toast, onPublication = () => {}}){
       }else if(b.matches("[data-send]")){
         const url = $("[data-link-text]").value;
         if(navigator.share) await navigator.share({title: rec.trip.title, text: t("inviteText", {t: rec.trip.title}), url}).catch(() => {});
-        else{ await navigator.clipboard.writeText(url); toast(t("linkCopied")); }
+        else copied($("[data-link-text]"));
       }else if(b.matches("[data-copy]")){
-        await navigator.clipboard.writeText($("[data-link-text]").value).catch(() => $("[data-link-text]").select());
-        toast(t("linkCopied"));
+        copied($("[data-link-text]"));
       }else if(b.matches("[data-pub-make]")){
         openPublishSheet({rec: {...rec, share: {...rec.share, publication: pub}}, toast, onDone: p => { published(p); toast(t("publishedDone")); }});
       }else if(b.matches("[data-pub-send]")){
         const url = $("[data-pub-link]").value;
         if(navigator.share) await navigator.share({title: rec.trip.title, url}).catch(() => {});
-        else{ await navigator.clipboard.writeText(url); toast(t("linkCopied")); }
+        else copied($("[data-pub-link]"));
       }else if(b.matches("[data-pub-copy]")){
-        await navigator.clipboard.writeText($("[data-pub-link]").value).catch(() => $("[data-pub-link]").select());
-        toast(t("linkCopied"));
+        copied($("[data-pub-link]"));
       }else if(b.matches("[data-pub-off]")){
         const yes = await ask({title: t("unpublishQ"), text: t("unpublishText"),
           actions: [{id: "no", label: t("cancel")}, {id: "yes", label: t("unpublish"), kind: "danger"}]});

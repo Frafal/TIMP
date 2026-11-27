@@ -5,7 +5,7 @@
 import { t, getLang } from "./i18n.js";
 import { esc } from "./util.js";
 import { REPO_URL } from "./config.js";
-import { openSheet, row, rowValue } from "./sheet.js";
+import { openSheet, row, rowValue, copyText } from "./sheet.js";
 import { ask } from "./ask.js";
 import { signUp, ShareError, linkedApps, unlinkApp, passkeys, openSessions, endOtherSessions, removePasskey, addPasskey, needsSignIn, signInAgain,
   recoveryState, makeRecoveryCodes, recoverAccount, connectorAddress, startLink, linkState, finishLink, lookLink, approveLink } from "./share.js";
@@ -155,7 +155,7 @@ export async function openLinkedApps(toast){
     if(e.target.closest("[data-link-another]")){ $("[data-connect]").hidden = false; $("[data-link-another]").hidden = true; return; }
     if(e.target.closest("[data-copy-connector]")){
       const field = $("[data-connector]");
-      await navigator.clipboard.writeText(field.textContent).then(() => toast(t("connectCopied")), () => getSelection().selectAllChildren(field));
+      if(await copyText(field.textContent)) toast(t("connectCopied")); else getSelection().selectAllChildren(field);
       return;
     }
     const b = e.target.closest("[data-unlink]");
@@ -285,7 +285,7 @@ export async function openDevices({toast, save, handle}){
       return;
     }
     if(copy){
-      await navigator.clipboard.writeText(codesText()).then(() => toast(t("recoveryCopied")), () => $("[data-codes] textarea").select());
+      if(await copyText(codesText())) toast(t("recoveryCopied")); else $("[data-codes] textarea").select();
       return;
     }
     if(keep){

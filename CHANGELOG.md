@@ -4,6 +4,28 @@ Versions follow [Semantic Versioning](https://semver.org/). The trip file format
 its own version: `travel-in-my-pocket/2` since 3.0. Files in `travel-in-my-pocket/1`
 (1.0 to 2.4) still load: the app converts them.
 
+## 4.19.0
+
+- **Alternatives open like stops**: in a group, each option is a stop of its own: a tap on
+  it shows its signals, description, cost, Map, Directions and Edit; only its circle
+  chooses it. Who goes there is said under its name.
+- **History on a new phone, or at the new address**: the versions this phone has not got
+  come from your account, which keeps them all, checked against their ids and kept here
+  for next time.
+- **Save the file with its history**: Save the file asks once, with a box each, nothing
+  ticked at first: my private expenses, its history (every version this phone has, for
+  another phone or address without an account). How to move at the old address always
+  takes the history. Loaded as any file, each version kept only if it is what its id says
+  (`travel-in-my-pocket/history`, docs/trip-format.md).
+- **Quick taps on two alternatives**: the circle moves at once, the choices are saved one
+  after the other, and of quick taps the last one stays (the second was lost to the first
+  still being saved).
+- Copying the recovery codes copies them on iPhones too, right after Face ID; every copy in
+  the app is one function now.
+- A group of alternatives with long names no longer makes the day wider than the screen.
+- Italian: "Per tutti: arriva a miriana alla prossima sincronizzazione", with no verb to
+  agree with one person or many.
+
 ## 4.18.0
 
 - **TIMP moves to usetimp.com**: the app is served there (a Cloudflare Worker of static

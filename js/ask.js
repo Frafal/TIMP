@@ -10,8 +10,8 @@
 // another way (Escape, a tap outside). The first button takes the focus: put the safe
 // one first.
 //
-// `check`, {label, checked}: a box above the buttons. Once the dialog is answered,
-// check.checked says how the traveller left it.
+// `check`, {label, checked}, or a list of them: boxes above the buttons. Once the dialog
+// is answered, each one's `checked` says how the traveller left it.
 //
 // `type`, {label, expected}: a field where the traveller writes `expected` (a trip's
 // name) to confirm something that cannot be undone. The buttons marked `needsType`
@@ -29,13 +29,14 @@ export function ask({title, text = "", actions, check, type}){
     d.setAttribute("aria-labelledby", "ask-title");
     const body = [].concat(text).filter(Boolean).map(x => typeof x === "string" ? `<p>${esc(x)}</p>`
       : `<section><h3>${esc(x.title)}</h3><ul>${x.items.map(i => `<li>${esc(i)}</li>`).join("")}</ul></section>`).join("");
-    const box = check ? `<label class="ask-check"><input type="checkbox"${check.checked ? " checked" : ""}><span>${esc(check.label)}</span></label>` : "";
+    const checks = [].concat(check || []);
+    const box = checks.map(c => `<label class="ask-check"><input type="checkbox"${c.checked ? " checked" : ""}><span>${esc(c.label)}</span></label>`).join("");
     const field = type ? `<label class="ask-type"><span>${esc(type.label)}</span><input type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${esc(type.expected)}"></label>` : "";
     d.innerHTML = `<h2 id="ask-title">${esc(title)}</h2>${body}${box}${field}` +
       `<div class="ask-actions">${actions.map(a => `<button type="button" class="btn ${esc(a.kind || "")}" data-answer="${esc(a.id)}"${a.needsType ? " data-needs-type disabled" : ""}>${esc(a.label)}</button>`).join("")}</div>`;
     document.body.appendChild(d);
     const done = answer => {
-      if(check) check.checked = d.querySelector(".ask-check input").checked;
+      d.querySelectorAll(".ask-check input").forEach((input, i) => { checks[i].checked = input.checked; });
       if(d.open) d.close();
       d.remove();
       resolve(answer);

@@ -14,12 +14,12 @@ import { versionStore } from "./objects.js";
 import { REPO_URL, MOVED_TO } from "./config.js";
 import { openStopEditor, openDayEditor, openExpenseEditor, openMoveDay } from "./editor.js";
 import { ask } from "./ask.js";
-import { openSheet } from "./sheet.js";
+import { openSheet, copyText } from "./sheet.js";
 import { addStop, updateStop, removeStop, addDay, updateDay, removeDay, swapDays, moveDayStops, moveWarnings, addExpense, updateExpense, removeExpense, ensureIds, chooseOption, addAlternative, moveGroup, leaveGroup, choosePlan } from "./edit.js";
 import { tidyGroups } from "./choices.js";
 import { convert, monthsFor, formatMoney, formatRate, symbolOf, homeOf, currencies, currencyName } from "./money.js";
 import { keptRates, fetchMonth } from "./rates.js";
-import { prepare, saveEdit, inspect, apply, restore, moveMarks, followIds, rejoin, fileName, fileText, separate, joinChanges } from "./trips.js";
+import { prepare, saveEdit, inspect, apply, restore, moveMarks, followIds, rejoin, fileName, fileText, separate, joinChanges, isHistory, keepHistory, olderVersions, historyText, historyName } from "./trips.js";
 import { newOwner, splitPrivate, onLoad as privateOnLoad, join as joinPrivate, emptySet, withMarks, marksInto, mergePrivate, addPrivate, updatePrivate, removePrivate, atStop, setAtStop, followStops, unlinkStop, followIds as followIdsPrivate } from "./private.js";
 import { needsStopIds } from "./ids.js";
 import { openFindPositions } from "./positions.js";
@@ -417,6 +417,8 @@ async function importText(text, name, {demo = false, said = ""} = {}){
     render(); scrollToY(0); return;
   }
   if(isChanges(data)){ await importChanges(data); return; }
+  // A trip with its history: its versions kept first (each checked), then the trip as any file.
+  if(isHistory(data)) data = (await keepHistory(versions, data)).trip;
   data = upgrade(data);   // a file in the old format is converted, then checked
   // Its stops get ids of their own, and one copied with its id (an assistant that copied
   // a stop) another: the original is the one where the version it was made from has it.
@@ -548,7 +550,9 @@ function showHistory(id){
   const who = onAccount ? async () => ({me: S.account.handle, versions: new Map((await tripHistory(rec.share.id)).map(v => [v.id, v]))}) : null;
   // Restoring a shared trip changes it for everyone: the question says who will see it.
   const forAll = async () => { const o = await othersOnTrip(rec); return o === null ? "" : o.length ? t("restoreShared", {who: o.join(", ")}) : t("restoreSharedAnyone"); };
-  openHistory({trip: rec.trip, versions, who, forAll, onRestore: async vid => {
+  // The versions this phone has not got come from the account, which keeps them all.
+  const fetchVersion = onAccount ? vid => serviceApi().version(rec.share.id, vid) : null;
+  openHistory({trip: rec.trip, versions, who, forAll, fetchVersion, onRestore: async vid => {
     if(!editable(rec)) return;
     const {trip} = await restore(versions, rec.trip, vid);
     const next = {...rec, trip};
@@ -796,6 +800,24 @@ const optionLabel = s => s ? [s.title, s.time ? timeText(s.time) : ""].filter(Bo
 // "Choose this" (design/README.md, P1–P2). A trip of mine only: the trip goes to this
 // option. Shared: asked, for everyone or only for me; read only or locked, only for me
 // at once. The group's own option again: my choice goes.
+// One choice at a time, each from the trip as the one before left it: a quick tap on
+// another option while the first is still being saved is never lost to it. The circle
+// moves at once (`picking`, option → the option picked in its group, until saved); of
+// several quick taps in a group, only the last is saved.
+const picking = new Map();
+let choosing = Promise.resolve();
+function pick(radio){
+  const id = radio.dataset.choose, ids = [...radio.closest('[role="radiogroup"]').querySelectorAll("[data-choose]")].map(r => r.dataset.choose);
+  for(const x of ids) picking.set(x, id);
+  for(const r of radio.closest('[role="radiogroup"]').querySelectorAll("[data-choose]")) r.setAttribute("aria-checked", String(r === radio));
+  choosing = choosing.then(async () => {
+    if(picking.get(id) !== id) return;
+    try{ await chooseHere(id); }
+    catch(e){ toast(String(e && e.message || e)); }
+    finally{ if(picking.get(id) === id){ for(const x of ids) picking.delete(x); render(); } }
+  });
+}
+
 async function chooseHere(id){
   const {ref, list} = hereList();
   const s = list.find(x => x.id === id), g = groupOf(s);
@@ -971,15 +993,21 @@ async function handOver(file, title){
 // A trip as a file, handed over; the version marked as saved. With private expenses,
 // the traveller says first whether they go in the file: kept for themselves, left out
 // for someone else.
-async function saveFile(rec){
-  let priv = null;
-  if(rec.priv && rec.priv.expenses.length){
-    const answer = await ask({title: t("saveFile"), text: t("saveWhich", {n: rec.priv.expenses.length}),
-      actions: [{id: "cancel", label: t("cancel")}, {id: "without", label: t("saveWithout")}, {id: "with", label: t("saveWith"), kind: "primary"}]});
-    if(answer !== "with" && answer !== "without") return;
-    if(answer === "with") priv = rec.priv;
-  }
-  const file = new File([fileText(rec.trip, priv)], fileName(rec.trip), {type: "application/json"});
+// One question when there is something to choose, a box each: the private expenses (for
+// oneself, never for someone else), the versions before it that this phone has (for
+// another phone or address without an account). Nothing ticked at first: only what the
+// traveller ticks goes in. `history`: always with it (moving to a new address).
+async function saveFile(rec, {history: always = false} = {}){
+  const older = await olderVersions(versions, rec.trip), n = rec.priv ? rec.priv.expenses.length : 0;
+  const withPriv = n ? {label: t("saveWithPriv", {n}), checked: false} : null;
+  const withHistory = older.length && !always ? {label: t("saveWithHistory", {n: older.length}), checked: false} : null;
+  const boxes = [withPriv, withHistory].filter(Boolean);
+  if(boxes.length && await ask({title: t("saveFile"), text: t("saveAsk"), check: boxes,
+    actions: [{id: "cancel", label: t("cancel")}, {id: "save", label: t("save"), kind: "primary"}]}) !== "save") return;
+  const priv = withPriv && withPriv.checked ? rec.priv : null;
+  const history = older.length > 0 && (always || !!(withHistory && withHistory.checked));
+  const file = history ? new File([historyText(rec.trip, priv, older)], historyName(rec.trip), {type: "application/json"})
+    : new File([fileText(rec.trip, priv)], fileName(rec.trip), {type: "application/json"});
   if(!(await handOver(file, rec.trip.title))) return;
   const done = {...rec, exported: rec.trip.version.id, ...(priv ? {privUnsaved: false} : {})};
   await keepRecord(done);
@@ -1215,12 +1243,10 @@ const requestBox = (id, key, label, hint) => `<div class="field ask-box"><div cl
 
 // Copies a message for an assistant. Without a clipboard a short one is shown to copy
 // by hand; a long one (a whole trip) cannot be, so the file is the way instead.
-async function copyText(text, done){
-  try{ await navigator.clipboard.writeText(text); toast(done); }
-  catch(e){
-    if(text.length > 4000){ toast(t("copyTooLong")); return; }
-    await ask({title: t("copyByHand"), text: text.split("\n").filter(Boolean), actions: [{id: "ok", label: t("close")}]});
-  }
+async function copyForAi(text, done){
+  if(await copyText(text)) return toast(done);
+  if(text.length > 4000) return toast(t("copyTooLong"));
+  await ask({title: t("copyByHand"), text: text.split("\n").filter(Boolean), actions: [{id: "ok", label: t("close")}]});
 }
 
 // The problems of a refused file, worded for the assistant that wrote it.
@@ -1230,7 +1256,7 @@ function messageForAi(){
 }
 
 function copyErrors(){
-  if(S.importError && S.importError.all) copyText(messageForAi(), t("copiedForAi"));
+  if(S.importError && S.importError.all) copyForAi(messageForAi(), t("copiedForAi"));
 }
 
 // A trip pasted as text, as a chat assistant gives it: no file to save on the phone.
@@ -1325,13 +1351,13 @@ function howToMove(){
       <ol class="steps"><li>${esc(t("moveStep1", {u}))}</li><li>${esc(t("moveStep2"))}</li><li>${esc(t("moveStep3"))}</li></ol>
       <button type="button" class="btn primary" data-approve>${esc(t("moveApprove"))}</button>` : ""}
     ${only.length ? `<h3 class="trip-group">${esc(t("moveOnlyHere"))}</h3>
-      ${only.map(r => `<div class="chat"><span class="who"><b>${esc(r.trip.title)}</b><small>${esc(datesOf(r, lang))}</small></span><button type="button" class="tbtn" data-save="${esc(r.id)}">${esc(t("saveFile"))}</button></div>`).join("")}
+      ${only.map(r => `<div class="chat"><span class="who"><b>${esc(r.trip.title)}</b><small>${esc(datesOf(r, lang))}</small></span><button type="button" class="tbtn" data-save="${esc(r.id)}">${esc(t("saveHistory"))}</button></div>`).join("")}
       <p class="foot">${esc(t("moveLoadThere", {u}))}</p>` : ""}
     ${!S.account && !only.length ? `<p class="foot">${esc(t("moveNothing", {u}))}</p>` : ""}`});
   dlg.addEventListener("click", e => {
     if(e.target.closest("[data-approve]")) return openApprove({toast});
     const save = e.target.closest("[data-save]"), rec = save && S.records.find(r => r.id === save.dataset.save);
-    if(rec) saveFile(rec);
+    if(rec) saveFile(rec, {history: true});
   });
 }
 
@@ -2383,7 +2409,9 @@ function stopsHTML(day, planId, list, parts, paint, all = list, now = {today: fa
     // The rail: the stop's number, the same sign as on the map (M1); a crossed sign for a
     // stop without a position, which finds it (P1).
     const kind = TYPES.includes(s.type) ? t("type_" + s.type) : "";
-    const rail = s.lat !== undefined && i >= 0
+    const rail = opt.choose !== undefined
+      ? `<button type="button" class="rd" role="radio" aria-checked="${opt.choose}" data-choose="${esc(s.id)}" aria-label="${esc(t("altChoose") + " " + s.title)}"></button>`
+      : s.lat !== undefined && i >= 0
       ? `<span class="nb" data-pin="${i}" style="--pf:${paint.stop(s.type, i)}" role="img" aria-label="${esc(t("stopNumber", {n: i + 1}) + (kind ? ", " + kind : ""))}">${i + 1}</span>`
       : s.lat === undefined && change && s.id ? `<button type="button" class="nopos-sign" data-find-pos="${esc(s.id)}" aria-label="${esc(t("noPosFind", {s: s.title}) + (kind ? ", " + kind : ""))}" title="${esc(t("noPosTag"))}">${NO_POS}</button>`
       : s.lat === undefined ? `<span class="nopos-sign" role="img" aria-label="${esc(t("noPosTag") + (kind ? ", " + kind : ""))}">${NO_POS}</span>` : `<span class="nb blank" aria-hidden="true"></span>`;
@@ -2391,7 +2419,7 @@ function stopsHTML(day, planId, list, parts, paint, all = list, now = {today: fa
     const night = parts && i >= 0 && parts[i] === "night" && !["sunset", "evening", "night"].includes(partOf(s.time)) ? `<span class="nightmark" role="img" aria-label="${esc(t("afterDark"))}" title="${esc(t("afterDark"))}">${icon("moon", 13)}</span>` : "";
     const when = s.time || night || s.travel || (hasCost && !compact)
       ? `<p class="when">${s.time ? timeHTML(s.time) : ""}${night}${chip("travel", s.travel)}${hasCost && !compact ? `<span class="cost">${esc(costShort(s, paid))}</span>` : ""}</p>` : "";
-    const name = `<h2 class="tt"><button type="button" class="tap" data-open="${esc(id)}" aria-expanded="${open}" aria-controls="${mid}">${esc(s.title)}</button></h2>`;
+    const name = `<h2 class="tt"><button type="button" class="tap" data-open="${esc(id)}" aria-expanded="${open}" aria-controls="${mid}">${esc(s.title)}</button>${opt.mark || ""}</h2>`;
     const lang = s.local ? localLang(s.local, regionOf(s, trip().timezone)) : "";
     const local = s.local && !compact ? `<p class="local"${lang ? ` lang="${lang}"` : ""}>${esc(s.local)}</p>` : "";
     const sigs = compact ? [] : signalsOf(s, day, isDone || isSkipped);
@@ -2411,7 +2439,8 @@ function stopsHTML(day, planId, list, parts, paint, all = list, now = {today: fa
       ].filter(Boolean);
       const changes = [
         s.id ? `<button type="button" data-edit="${esc(s.id)}">${EDIT}${esc(t("editStop"))}</button>` : "",
-        isDone ? "" : `<button type="button" data-skip="${esc(id)}" aria-pressed="${isSkipped}">${SKIP}${esc(t(isSkipped ? "unskip" : "skip"))}</button>`,
+        // An option is not in the day's program: nothing to skip.
+        isDone || opt.choose !== undefined ? "" : `<button type="button" data-skip="${esc(id)}" aria-pressed="${isSkipped}">${SKIP}${esc(t(isSkipped ? "unskip" : "skip"))}</button>`,
         s.id && change && !opt.group ? `<button type="button" data-alt-add="${esc(s.id)}">${esc(t("altAdd"))}</button>` : ""
       ].filter(Boolean);
       more = `<div class="xpand" id="${mid}">` +
@@ -2424,8 +2453,9 @@ function stopsHTML(day, planId, list, parts, paint, all = list, now = {today: fa
     }
     // Ticked for everyone by someone else: who, quietly (G3).
     const gm = S.rec.group && S.rec.group.marks, gby = gm && (isDone ? gm.done[id] : isSkipped ? gm.skipped[id] : null);
-    const by = gby && gby.by && (!S.account || gby.by !== S.account.handle) ? gby.by : "";
-    const tick = `<button class="tick" type="button" data-tick="${esc(id)}" aria-pressed="${isDone}" aria-label="${esc(t(isDone ? "markUndone" : "markDone"))}: ${esc(s.title)}${by ? esc(t("tickBy", {h: by})) : ""}">${isSkipped ? DASH : CHECK}</button>`;
+    // An option: who goes there, of those who show it (G2, G7).
+    const by = opt.goers || (gby && gby.by && (!S.account || gby.by !== S.account.handle) ? gby.by : "");
+    const tick = opt.choose !== undefined ? "" : `<button class="tick" type="button" data-tick="${esc(id)}" aria-pressed="${isDone}" aria-label="${esc(t(isDone ? "markUndone" : "markDone"))}: ${esc(s.title)}${by ? esc(t("tickBy", {h: by})) : ""}">${isSkipped ? DASH : CHECK}</button>`;
     const cls = ["stop", isDone && "done", isSkipped && "skipped", open && "open", isNext && "next", compact && "compact", past && "past", hasCost && "has-cost", opt.group && "in-group"].filter(Boolean).join(" ");
     return `<${tag} class="${cls}"><div class="rail">${rail}</div><div class="body">${when}${name}${by ? `<p class="by">${esc(by)}</p>` : ""}${local}${closedPart}${more}</div>${tick}</${tag}>`;
   };
@@ -2460,10 +2490,10 @@ function stopsHTML(day, planId, list, parts, paint, all = list, now = {today: fa
     const at = all.indexOf(s), nx = list.findIndex(x => all.indexOf(x) > at), slot = chosen ? list.indexOf(chosen) : nx < 0 ? list.length : nx;
     const gid = "grp-" + (++uid);
     // Its options, a choice to make: one tap chooses (R1), asking first on a shared trip (A9).
-    const options_ = `<div class="opts" id="${gid}" role="radiogroup" aria-label="${esc(g)}">` + options.map(o => {
-      const line = [typeof o.cost === "number" ? costShort(o, []) : "", o.local || "", at_(o).join(", ")].filter(Boolean).join(" · ");
-      return `<button type="button" class="opt" role="radio" aria-checked="${o === chosen}" data-choose="${esc(o.id)}"><span class="rd" aria-hidden="true"></span><span class="ot"><b>${esc(o.title)}${mark(o)}${o.mine ? "" : whoCircles(at_(o))}</b>${line ? `<small>${esc(line)}</small>` : ""}</span>${o.time ? `<span class="otm">${esc(timeText(o.time))}</span>` : ""}</button>`;
-    }).join("") + `</div>` + (change ? `<button type="button" class="addopt" data-alt-add="${esc(options[0].id)}">${esc(t("altAdd"))}</button>` : "");
+    // Its options, a choice to make, each a stop of its own: a tap opens it like any stop,
+    // only its circle chooses it (P1, R1), asking first on a shared trip (A9).
+    const options_ = `<div class="opts" id="${gid}" role="radiogroup" aria-label="${esc(g)}">` + options.map(o =>
+      stopEl(o, -1, {group: g, choose: picking.has(o.id) ? picking.get(o.id) === o.id : o === chosen, mark: mark(o) + (o.mine ? "" : whoCircles(at_(o))), goers: at_(o).join(", ")}, "div")).join("") + `</div>` + (change ? `<button type="button" class="addopt" data-alt-add="${esc(options[0].id)}">${esc(t("altAdd"))}</button>` : "");
     if(chosen && slot === now.next) html += nowMark();
     if(!chosen){
       // No choice yet: dashed, like everything not there yet (R15); the route and the
@@ -2540,7 +2570,7 @@ function fitHeadline(){
 // its last option's circle, or at its chosen stop's number, measured once drawn.
 function markTail(){
   for(const g of document.querySelectorAll(".stops > .group:last-child")){
-    const signs = g.querySelectorAll(".ghead .nb, .stop .nb, .stop .nopos-sign, .opt .rd");
+    const signs = g.querySelectorAll(".ghead .nb, .stop .nb, .stop .nopos-sign, .stop .rd");
     const last = signs[signs.length - 1];
     if(!last) continue;
     const box = g.getBoundingClientRect(), r = last.getBoundingClientRect();
@@ -2890,7 +2920,7 @@ $app.addEventListener("click", e => {
     return;
   }
   const choose = e.target.closest("[data-choose]");
-  if(choose){ chooseHere(choose.dataset.choose); return; }
+  if(choose){ pick(choose); return; }
   const altAdd = e.target.closest("[data-alt-add]");
   if(altAdd){ S.menuFor = null; render(); addAlternativeHere(altAdd.dataset.altAdd); return; }
   const planAll = e.target.closest("[data-plan-choose]");
@@ -3068,9 +3098,9 @@ function runAct(act){
   else if(a === "assistant") openAssistant();
   else if(a === "trip-menu") tripMenu(act.dataset.id);
   else if(a === "copy-errors") copyErrors();
-  else if(a === "copy-prompt") copyText(aiMessage(), t((S.drafts.new || "").trim() ? "copiedReady" : "copiedPrompt"));
-  else if(a === "copy-prompt-full") copyText(aiMessageFull(), t((S.drafts.new || "").trim() ? "copiedReady" : "copiedPrompt"));
-  else if(a === "copy-edit" && S.rec) copyText(aiEditMessage(), t((S.drafts["edit:" + S.rec.id] || "").trim() ? "copiedReady" : "copiedEdit"));
+  else if(a === "copy-prompt") copyForAi(aiMessage(), t((S.drafts.new || "").trim() ? "copiedReady" : "copiedPrompt"));
+  else if(a === "copy-prompt-full") copyForAi(aiMessageFull(), t((S.drafts.new || "").trim() ? "copiedReady" : "copiedPrompt"));
+  else if(a === "copy-edit" && S.rec) copyForAi(aiEditMessage(), t((S.drafts["edit:" + S.rec.id] || "").trim() ? "copiedReady" : "copiedEdit"));
   else if(a === "clear-draft"){
     setDraft(act.dataset.key, "");
     const box = document.querySelector(`[data-draft="${CSS.escape(act.dataset.key)}"]`);

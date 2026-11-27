@@ -5,7 +5,7 @@
 import { t, getLang } from "./i18n.js";
 import { esc, dateParts } from "./util.js";
 import { diffTrips } from "./diff.js";
-import { shortId } from "./version.js";
+import { shortId, isIntact } from "./version.js";
 import { ask } from "./ask.js";
 import { openSheet } from "./sheet.js";
 
@@ -68,7 +68,7 @@ async function authors(who){
  *   who: the trip's versions as the service has them, when it is on the account
  *   forAll?: () => Promise<string>: on a shared trip, who will see a version restored
  */
-export async function openHistory({trip, versions, onRestore, who, forAll = null}){
+export async function openHistory({trip, versions, onRestore, who, forAll = null, fetchVersion = null}){
   // Open on the tap, tall (SH2): the versions arrive inside it, ten at a time, and who
   // made them when the service answers.
   const dialog = openSheet({title: t("historyTitle"), cls: "history tall", body: `
@@ -109,16 +109,27 @@ export async function openHistory({trip, versions, onRestore, who, forAll = null
   // takes a few milliseconds; the 60 most recent are enough to find one's way back.
   const ids = [trip.version.id, ...trip.version.history];
   const here = new Set(await versions.ids(trip.id));
+  // A version this phone has not got (made on another, or before the app had this
+  // address): from the account, which keeps them all, if it is what its id says; then
+  // kept here too.
+  const version = async id => {
+    if(here.has(id)) return versions.get(trip.id, id);
+    const v = fetchVersion && await fetchVersion(id).catch(() => null);
+    if(!v || v.id !== trip.id || !v.version || v.version.id !== id || !(await isIntact(v))) return null;
+    await versions.put(v);
+    here.add(id);
+    return v;
+  };
   const fmt = new Intl.DateTimeFormat(getLang(), {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"});
   let away = 0;
   const flush = () => { if(away){ rows.push(`<li class="away">${esc(t("historyAway", {n: away}))}</li>`); away = 0; } };
   const draw = (wait = true) => { if(dialog.open) list.innerHTML = rows.join("") + (wait ? `<li class="foot">${esc(t("mapLoading"))}</li>` : ""); };
   for(const id of ids.slice(0, 60)){
     if(!dialog.open) return;
-    const v = here.has(id) ? await versions.get(trip.id, id) : null;
+    const v = await version(id);
     if(!v){ away++; continue; }
     flush();
-    const parent = v.version.parents[0] && here.has(v.version.parents[0]) ? await versions.get(trip.id, v.version.parents[0]) : null;
+    const parent = v.version.parents[0] ? await version(v.version.parents[0]) : null;
     const what = !v.version.parents.length ? [t("historyFirst")]
       : parent ? describe(diffTrips(parent, v), Infinity) : [t("historyUnknown")];
     if(v.version.parents.length > 1) what.unshift(t("historyMerge", {v: shortId(v.version.parents[1])}));
